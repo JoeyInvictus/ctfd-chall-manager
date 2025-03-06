@@ -1,3 +1,0 @@
-name: config
-runtime: go
-description: Additionnal configuration for cypress Tests

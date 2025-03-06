@@ -82,6 +82,7 @@ function loadInfo() {
             var until = new Date(response.until)
             console.log(until)
             var count_down = until - now
+            console.log(count_down)
             if (count_down > 0) {   // if the instance is not expired         
                 
                 $('#whale-panel-stopped').hide();
@@ -93,7 +94,7 @@ function loadInfo() {
                 
 
                 window.t = setInterval(() => {
-                    count_down = until - new Date();
+                    count_down = until - new Date().toISOString();
                     if (count_down <= 0) {
                         loadInfo();
                     }
@@ -117,43 +118,8 @@ function loadInfo() {
  
         
     });
+}
 
-    // get renaming mana for user
-    CTFd.fetch("/api/v1/plugins/ctfd-chall-manager/mana", {
-        method: 'GET',
-        credentials: 'same-origin',
-        headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json'
-        },
-    }).then(function (response) {
-        
-        if (response.status === 429) {
-            // User was ratelimited but process response
-            return response.json();
-        }
-        if (response.status === 403) {
-            // User is not logged in or CTF is paused.
-            return response.json();
-        }
-        return response.json();
-    }).then(function (response) {
-        if (response.success) response = response.data;
-        else CTFd._functions.events.eventAlert({
-            title: "Fail",
-            html: response.data.message,
-        });
-        return response
-    }).then(function (response){
-        if (response.total == 0){
-            $('.cm-panel-mana-cost-div').hide();  // hide the mana cost div if mana is disabled
-        }
-        else {
-            let remaining = response.total - response.used
-            $('#cm-challenge-mana-remaining').html(remaining);
-        }
-    });
-};
 
 CTFd._internal.challenge.destroy = function() {
     return new Promise((resolve, reject) => {

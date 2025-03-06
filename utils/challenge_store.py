@@ -13,24 +13,19 @@ def query_challenges() -> list:
     :return list: list of challenges [{ . }, { . }]
     """
     cm_api_url = get_config("chall-manager:chall-manager_api_url")
-    url = f"{cm_api_url}/challenge"
+    url = f"{cm_api_url}/challenges"
     s = requests.Session()
     result = []
 
     logger.debug(f"Querying challenges from {url}")
 
     try:
-        with s.get(url, headers=None, stream=True, timeout=10) as resp:
-            for line in resp.iter_lines():
-                if line:
-                    res = line.decode("utf-8")
-                    res = json.loads(res)
-                    result.append(res["result"])
+        req = s.get(url, headers=None, stream=True, timeout=10) 
+        result.append(req["data"])
         logger.debug(f"Successfully queried challenges: {result}")
     except Exception as e:
         logger.error(f"Error querying challenges: {e}")
         raise Exception(f"ConnectionError: {e}")
-
     return result
 
 def create_challenge(id: int, scenario: str, *args) -> requests.Response:
@@ -39,30 +34,22 @@ def create_challenge(id: int, scenario: str, *args) -> requests.Response:
     
     :param id: id of challenge to create (e.g: 1)
     :param scenario: base64(zip(.)),
-    :param *args: additional configuration in dictionary format (e.g {'timeout': '600', 'updateStrategy': 'update_in_place', 'until': '2024-07-10 15:00:00'})
     
     :return Response: of chall-manager API
     """
     cm_api_url = get_config("chall-manager:chall-manager_api_url")
-    url = f"{cm_api_url}/challenge"
+    url = f"{cm_api_url}/challenges/{str(id)}"
 
+    print(id)
     headers = {
         "Content-Type": "application/json"
     }
 
     payload = {}
 
-    if len(args) != 0:
-        if type(args[0]) is not dict:
-            logger.error("Invalid arguments provided for creating challenge")
-            return
-
-        payload = args[0]
-
     logger.debug(f"Creating challenge with id={id}")
 
-    payload["id"] = str(id)
-    payload["scenario"] = scenario
+    payload["zip64"] = scenario
 
     try:
         r = requests.post(url, data=json.dumps(payload), headers=headers)
@@ -71,7 +58,7 @@ def create_challenge(id: int, scenario: str, *args) -> requests.Response:
         logger.error(f"Error creating challenge: {e}")
         raise Exception(f"An exception occurred while communicating with CM: {e}")
     else:
-        if r.status_code != 200:
+        if r.status_code != 201:
             logger.error(f"Error from chall-manager: {json.loads(r.text)}")
             raise Exception(f"Chall-manager returned an error: {json.loads(r.text)}")
     
@@ -114,6 +101,7 @@ def get_challenge(id: int) -> requests.Response:
     try:
         r = requests.get(url, timeout=10)
         logger.debug(f"Received response: {r.status_code} {r.text}")
+
     except Exception as e:
         logger.error(f"Error getting challenge: {e}")
         raise Exception(f"An exception occurred while communicating with CM: {e}")

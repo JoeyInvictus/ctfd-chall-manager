@@ -10,15 +10,12 @@ from CTFd.utils.decorators import admins_only, authed_only  # type: ignore
 from .models import DynamicIaCChallenge
 
 from .utils.instance_manager import create_instance, delete_instance, get_instance, update_instance
-from .utils.mana_coupon import create_coupon, delete_coupon, get_source_mana
 from .utils.logger import configure_logger
-from .utils.mana_lock import ManaLock
 from .utils.chall_manager_error import ChallManagerException
 from .decorators import challenge_visible
 
 # Configure logger for this module
 logger = configure_logger(__name__)
-lockers = {}
 
 admin_namespace = Namespace("ctfd-chall-manager-admin")
 user_namespace = Namespace("ctfd-chall-manager-user")
@@ -71,20 +68,8 @@ class AdminInstance(Resource):
         adminId = str(current_user.get_current_user().id)
         logger.info(f"Admin {adminId} request instance creation for challengeId: {challengeId}, sourceId: {sourceId}")
 
-        cm_mana_total = get_config("chall-manager:chall-manager_mana_total")
 
         try:
-            if sourceId not in lockers.keys():
-                lock = ManaLock(f"{sourceId}")
-                lockers[sourceId] = lock
-            else:
-                lock = lockers[sourceId]
-            lock.admin_lock()
-
-            if cm_mana_total > 0:
-                create_coupon(challengeId, sourceId)
-                logger.info(f"Coupon created for challengeId: {challengeId}, sourceId: {sourceId}")
-
             logger.debug(f"Creating instance for challengeId: {challengeId}, sourceId: {sourceId}")
             r = create_instance(challengeId, sourceId)
             logger.info(f"Instance for challengeId: {challengeId}, sourceId: {sourceId} created successfully.")
@@ -100,15 +85,9 @@ class AdminInstance(Resource):
 
         except Exception as e:
             logger.error(f"Error while creating instance: {e}")
-            if cm_mana_total > 0:
-                delete_coupon(challengeId, sourceId)
-                logger.info(f"Coupon deleted for challengeId: {challengeId}, sourceId: {sourceId}")
             return {'success': False, 'data': {
                 'message': f"Error while communicating with CM : {e}",
             }}
-
-        finally:
-            lock.admin_unlock()
 
         return {'success': True, 'data': json.loads(r.text)}
 
@@ -143,36 +122,19 @@ class AdminInstance(Resource):
         challengeId = data.get("challengeId")
         sourceId = data.get("sourceId")
 
-        cm_mana_total = get_config("chall-manager:chall-manager_mana_total")
-
         adminId = str(current_user.get_current_user().id)
         logger.info(f"Admin {adminId} request instance delete for challengeId: {challengeId}, sourceId: {sourceId}")
 
         try:
-            if sourceId not in lockers.keys():
-                lock = ManaLock(f"{sourceId}")
-                lockers[sourceId] = lock
-            else:
-                lock = lockers[sourceId]
-
-            lock.admin_lock()
-
             logger.debug(f"Deleting instance for challengeId: {challengeId}, sourceId: {sourceId}")
             r = delete_instance(challengeId, sourceId)
             logger.info(f"Instance for challengeId: {challengeId}, sourceId: {sourceId} delete successfully.")
-
-            if cm_mana_total > 0:
-                delete_coupon(challengeId, sourceId)
-                logger.info(f"Coupon deleted for challengeId: {challengeId}, sourceId: {sourceId}")
 
         except Exception as e:
             logger.error(f"Error while deleting instance: {e}")
             return {'success': False, 'data': {
                 'message': f"Error while communicating with CM : {e}",
             }}
-
-        finally:
-            lock.admin_unlock()
 
         return {'success': True, 'data': json.loads(r.text)}
 
@@ -231,15 +193,13 @@ class UserInstance(Resource):
     @authed_only
     @challenge_visible
     def post(): 
-        # retrieve all instance deployed by chall-manager
-        cm_mana_total = get_config("chall-manager:chall-manager_mana_total")
-
         data = request.get_json()
         # mandatory
         challengeId = data.get("challengeId")
 
         # check userMode of CTFd
         sourceId = str(current_user.get_current_user().id)
+        userEmail = str(current_user.get_current_user().email)
         logger.info(f"user {sourceId} request instance creation of challenge {challengeId}")
         if get_config("user_mode") == "teams":
             sourceId = str(current_user.get_current_user().team_id)
@@ -254,35 +214,9 @@ class UserInstance(Resource):
         # check if sourceId can launch the instance
 
         try:
-            if sourceId not in lockers.keys():
-                lock = ManaLock(f"{sourceId}")
-                lockers[sourceId] = lock
-            else:
-                lock = lockers[sourceId]
-
-            lock.player_lock()
-
-            if cm_mana_total > 0:
-                challenge = DynamicIaCChallenge.query.filter_by(id=challengeId).first()
-
-                # check current mana
-                source_mana = get_source_mana(int(sourceId))
-
-                if source_mana + challenge.mana_cost > cm_mana_total:
-                    logger.warning(f"sourceId {sourceId} does not have the necessary mana")
-                    return {'success': False, 'data': {
-                        'message': "You or your team used up all your mana. You must recover mana by destroying instances of other challenges to continue.",
-                    }}
-
             logger.debug(f"Creating instance for challengeId: {challengeId}, sourceId: {sourceId}")
-            r = create_instance(challengeId, sourceId)
+            r = create_instance(challengeId, sourceId, userEmail)
             logger.info(f"Instance for challengeId: {challengeId}, sourceId: {sourceId} created successfully")
-
-            # create a new coupon
-            if cm_mana_total > 0:
-                logger.debug(f"Creating coupon for challengeId: {challengeId}, sourceId: {sourceId}")
-                create_coupon(challengeId, sourceId)
-                logger.info(f"Coupon for challengeId: {challengeId}, sourceId: {sourceId} created successfully")
 
         except ChallManagerException as e:
             if "already exist" in e.message:
@@ -294,13 +228,11 @@ class UserInstance(Resource):
             }}
 
         except Exception as e:
+            print(e)
             logger.error(f"Error while creating instance: {e}")
             return {'success': False, 'data': {
                 'message': f"Error while communicating with CM : {e}",
             }}
-
-        finally:
-            lock.player_unlock()
 
         # return only necessary values
         data = {}
@@ -356,8 +288,6 @@ class UserInstance(Resource):
     @authed_only
     @challenge_visible
     def delete():
-        # retrieve all instances deployed by chall-manager
-        cm_mana_total = get_config("chall-manager:chall-manager_mana_total")
 
         data = request.get_json()
         challengeId = data.get("challengeId")
@@ -376,13 +306,6 @@ class UserInstance(Resource):
             }}
 
         try:
-            if sourceId not in lockers.keys():
-                lock = ManaLock(f"{sourceId}")
-                lockers[sourceId] = lock
-            else:
-                lock = lockers[sourceId]
-
-            lock.player_lock()
 
             logger.debug(f"Deleting instance for challengeId: {challengeId}, sourceId: {sourceId}")
             r = delete_instance(challengeId, sourceId)
@@ -393,44 +316,6 @@ class UserInstance(Resource):
                 'message': f"Error while communicating with CM : {e}",
             }}
 
-        finally:
-            logger.debug(f"/mana release the {sourceId}_r lock")
-            lock.player_unlock()
-
-        if cm_mana_total > 0:
-            logger.debug(f"Deleting coupon for challengeId: {challengeId}, sourceId: {sourceId}")
-            delete_coupon(challengeId, sourceId)
-            logger.info(f"Coupon deleted for challengeId: {challengeId}, sourceId: {sourceId}")
 
         return {'success': True, 'data': {}}
-
-
-# region UserMana
-@user_namespace.route("/mana")
-class UserMana(Resource):
-    @staticmethod
-    @authed_only
-    def get():
-        sourceId = str(current_user.get_current_user().id)
-        if get_config("user_mode") == "teams":
-            sourceId = str(current_user.get_current_user().team_id)
-
-        try:
-            if sourceId not in lockers.keys():
-                lock = ManaLock(f"{sourceId}")
-                lockers[sourceId] = lock
-            else:
-                lock = lockers[sourceId]
-
-            lock.player_lock()
-
-            mana = get_source_mana(sourceId)
-            logger.debug(f"Retrieved mana for sourceId: {sourceId}, mana: {mana}")
-        finally:
-            lock.player_unlock()
-
-        return {'success': True, 'data': {
-            'used': f"{mana}",
-            'total': f"{get_config('chall-manager:chall-manager_mana_total')}",
-        }}
 
