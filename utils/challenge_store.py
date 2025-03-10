@@ -14,14 +14,12 @@ def query_challenges() -> list:
     """
     cm_api_url = get_config("chall-manager:chall-manager_api_url")
     url = f"{cm_api_url}/challenges"
-    s = requests.Session()
-    result = []
 
     logger.debug(f"Querying challenges from {url}")
 
     try:
-        req = s.get(url, headers=None, stream=True, timeout=10) 
-        result.append(req["data"])
+        req = requests.get(url, headers=None, timeout=10) 
+        result = req.json()
         logger.debug(f"Successfully queried challenges: {result}")
     except Exception as e:
         logger.error(f"Error querying challenges: {e}")
@@ -73,7 +71,7 @@ def delete_challenge(id: int) -> requests.Response:
     :return Response: of chall-manager API
     """
     cm_api_url = get_config("chall-manager:chall-manager_api_url")
-    url = f"{cm_api_url}/challenge/{id}"
+    url = f"{cm_api_url}/challenges/{id}"
 
     logger.debug(f"Deleting challenge with id={id}")
 
@@ -94,7 +92,7 @@ def get_challenge(id: int) -> requests.Response:
     :return Response: of chall-manager API
     """
     cm_api_url = get_config("chall-manager:chall-manager_api_url")
-    url = f"{cm_api_url}/challenge/{id}"
+    url = f"{cm_api_url}/challenges/{id}"
 
     logger.debug(f"Getting challenge information for id={id}")
 
@@ -121,7 +119,7 @@ def update_challenge(id: int, *args) -> requests.Response:
     :return Response: of chall-manager API
     """
     cm_api_url = get_config("chall-manager:chall-manager_api_url")
-    url = f"{cm_api_url}/challenge/{id}"
+    url = f"{cm_api_url}/challenges/{id}"
 
     headers = {
         "Content-Type": "application/json"
@@ -150,7 +148,7 @@ def update_challenge(id: int, *args) -> requests.Response:
     payload["updateMask"] = ",".join(updateMask)
 
     try:
-        r = requests.patch(url, data=json.dumps(payload), headers=headers)
+        r = requests.put(url, data=json.dumps(payload), headers=headers)
         logger.debug(f"Received response: {r.status_code} {r.text}")
     except Exception as e:
         logger.error(f"Error updating challenge: {e}")

@@ -57,14 +57,14 @@
                     <td class="border-right" data-checkbox>
                         <div class="form-check text-center">&nbsp;
                             <input type="checkbox" class="form-check-input" 
-                            data-challenge-id="{{ instance.challengeId }}"
-                            data-source-id="{{ instance.sourceId }}">
+                            data-challenge-id="{{ instance.challenge_id }}"
+                            data-source-id="{{ instance.user_id }}">
                         </div>
                     </td>
                 
                     <td class="text-center">
                         <div class="form-check" id="challenge-id-div">
-                            <a href="{{ url_for('admin.challenges_detail', challenge_id=instance.challengeId) }}">
+                            <a href="{{ url_for('admin.challenges_detail', challenge_id=instance.challenge_id) }}">
                                 {{ instance.challengeName }}
                             </a>
                         </div>
@@ -72,12 +72,12 @@
                     </td>
                     <td class="text-center">
                         {% if user_mode == "teams" %}
-                        <a href="{{ url_for('admin.teams_detail', team_id=instance.sourceId) }}">
-                            {{ instance.sourceId }}
+                        <a href="{{ url_for('admin.teams_detail', team_id=instance.user_id) }}">
+                            {{ instance.user_id }}
                         </a>
                         {% else %}
-                        <a href="{{ url_for('admin.users_detail', user_id=instance.sourceId) }}">
-                            {{ instance.sourceId }}
+                        <a href="{{ url_for('admin.users_detail', user_id=instance.user_id) }}">
+                            {{ instance.user_id }}
                         </a>
                         {% endif %}
                     </td>
@@ -93,7 +93,7 @@
                     <td class="text-center">
                         {% if instance.flag %}
                         <button class="btn btn-link p-0 click-copy"
-                            data-test-id="flag-{{ instance.sourceId }}"
+                            data-test-id="flag-{{ instance.user_id }}"
                             data-copy="{{ instance.flag }}"
                             title="{{ instance.flag }}">
                             <i class="fa-solid fa-copy"></i>
@@ -104,14 +104,14 @@
                     </td>
 
                     <td class="text-center">
-                        {% set list1 = instance.since.split('T') %}
+                        {% set list1 = instance.created_at.split('T') %}
                         {{ list1[0] }} &nbsp;
                         {{ list1[1][0:8] }}
                     </td>
 
                     <td class="text-center">
                         {% if instance.until %}
-                        {% set list1 = instance.until.split('T') %}
+                        {% set list1 = instance.created_at.split('T') %} <!--until-->
                         {{ list1[0] }} &nbsp;
                         {{ list1[1][0:8] }}
                         {% else %}
@@ -120,15 +120,15 @@
                     </td>
 
                     <td class="text-center">
-                        {% set list1 = instance.lastRenew.split('T') %}
+                        {% set list1 = instance.created_at.split('T') %} <!--lastrenew-->
                         {{ list1[0] }} &nbsp;
                         {{ list1[1][0:8] }}
                     </td>
 
                     <td class="text-center">                        
                         <button class="btn btn-link p-0 renew-instance"                            
-                           challenge-id="{{ instance.challengeId }}"
-                           source-id="{{ instance.sourceId }}"
+                           challenge-id="{{ instance.challenge_id }}"
+                           source-id="{{ instance.user_id }}"
                            data-placement="top"
                            data-toggle="tooltip"
                            title="Renew">
@@ -137,8 +137,8 @@
                     </td>
                     <td class="text-center">
                         <button class="btn btn-link p-0 restart-instance"
-                           challenge-id="{{ instance.challengeId }}"
-                           source-id="{{ instance.sourceId }}"
+                           challenge-id="{{ instance.challenge_id }}"
+                           source-id="{{ instance.user_id }}"
                            data-placement="top"
                            data-toggle="tooltip"
                            title="Restart">
@@ -147,8 +147,8 @@
                     </td>
                     <td class="text-center">
                         <button class="btn btn-link p-0 delete-instance"
-                           challenge-id="{{ instance.challengeId }}" 
-                           source-id="{{ instance.sourceId }}" 
+                           challenge-id="{{ instance.challenge_id }}" 
+                           source-id="{{ instance.user_id }}" 
                            data-placement="top"
                            data-toggle="tooltip"
                            title="Destroy">

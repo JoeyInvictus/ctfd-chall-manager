@@ -189,7 +189,7 @@ class DynamicIaCValueChallenge(DynamicValueChallenge):
                 logger.error(f"Error while patching the challenge: {e}")
                 return
 
-            instances = json.loads(r.text)["instances"]
+            instances = json.loads(r.text)["data"]["instances"]
 
             if data["shared"]:  # if true
                 for i in instances:

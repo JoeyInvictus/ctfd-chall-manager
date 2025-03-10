@@ -79,10 +79,10 @@ function loadInfo() {
            
             // check instance is not expired
             var now = new Date();
-            var until = new Date(response.until)
-            console.log(until)
-            var count_down = until - now
-            console.log(count_down)
+            var until = new Date(response.until);
+            console.log(until);
+            var count_down = until - now;
+            console.log(count_down);
             if (count_down > 0) {   // if the instance is not expired         
                 
                 $('#whale-panel-stopped').hide();
@@ -94,7 +94,7 @@ function loadInfo() {
                 
 
                 window.t = setInterval(() => {
-                    count_down = until - new Date().toISOString();
+                    count_down = until - new Date();
                     if (count_down <= 0) {
                         loadInfo();
                     }

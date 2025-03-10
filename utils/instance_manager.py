@@ -74,6 +74,7 @@ def delete_instance(challengeId: int , sourceId: int) -> requests.Response | Exc
  
     return r
 
+
 def get_instance(challengeId: int, sourceId: int) -> requests.Response | Exception:
     """
     Once created, you can retrieve the instance information. If it has not been created yet, returns an error.
@@ -96,10 +97,12 @@ def get_instance(challengeId: int, sourceId: int) -> requests.Response | Excepti
         logger.error(f"Error getting instance: {e}")
         raise Exception(f"An exception occurred while communicating with CM: {e}")
     else:
-        if r.status_code != 200:
+        if r.status_code == 404:
+            pass 
+        elif r.status_code != 200:
             logger.info(f"No instance on chall-manager: {json.loads(r.text)}")
             raise Exception(f"Chall-manager returned an error: {json.loads(r.text)}")
- 
+
     return r
 
 def update_instance(challengeId: int, sourceId: int) -> requests.Response | Exception:

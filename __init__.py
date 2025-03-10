@@ -95,13 +95,14 @@ def load(app):
 
         instances = list()
 
-        for challenge in result:
+        for challenge in result['data']:
             for instance in challenge["instances"]:
                 instances.append(instance)
 
         user_mode = get_config("user_mode")
         for i in instances:
-            challenge_name = get_all_challenges(admin=True, id=i["challengeId"])[0].name
+            challenge_name = get_all_challenges(admin=True, id=i["challenge_id"])[0].name
+            print(challenge_name)
             i["challengeName"] = challenge_name
             logger.debug(f"Instance: {i}")
 
