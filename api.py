@@ -84,6 +84,7 @@ class AdminInstance(Resource):
                 }}
 
         except Exception as e:
+            print(e)
             logger.error(f"Error while creating instance: {e}")
             return {'success': False, 'data': {
                 'message': f"Error while communicating with CM : {e}",
@@ -181,12 +182,19 @@ class UserInstance(Resource):
         # return only necessary values
         data = {}
         result = json.loads(r.text)
-        if 'connectionInfo' in result.keys():
-            data['connectionInfo'] = result['connectionInfo']
+        try:
+            if 'connectionInfo' in result['data'].keys():
+                data['connectionInfo'] = result['data']['connectionInfo']
 
-        if 'until' in result.keys():
-            data['until'] = result['until']
+            if 'until' in result.keys():
+                data['until'] = result['until']
 
+            if result['data']['connectionInfo'] == None:
+                data['starting'] = "starting challenge..."
+
+        except Exception:
+            data = []
+        print(data)
         return {'success': True, 'data': data}
 
     @staticmethod

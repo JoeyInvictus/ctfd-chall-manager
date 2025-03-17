@@ -39,11 +39,9 @@ def create_instance(challengeId: int, sourceId: int, userEmail: str) -> requests
         raise Exception(f"An exception occurred while communicating with CM: {e}")
     else:
         if r.status_code != 200:
-            if r.json()["code"] == 2:
-                message = r.json()["message"]
-                logger.error(f"chall-manager return an error: {message}")
-                raise ChallManagerException(message=message)
- 
+            message = r.json()["message"]
+            logger.error(f"chall-manager return an error: {message}")
+            raise ChallManagerException(message=message)
     return r
 
 def delete_instance(challengeId: int , sourceId: int) -> requests.Response | Exception:
@@ -98,7 +96,7 @@ def get_instance(challengeId: int, sourceId: int) -> requests.Response | Excepti
         raise Exception(f"An exception occurred while communicating with CM: {e}")
     else:
         if r.status_code == 404:
-            pass 
+            pass
         elif r.status_code != 200:
             logger.info(f"No instance on chall-manager: {json.loads(r.text)}")
             raise Exception(f"Chall-manager returned an error: {json.loads(r.text)}")

@@ -257,7 +257,7 @@ class DynamicIaCValueChallenge(DynamicValueChallenge):
                 with open(full_scenario_location, "rb") as f:
                     encoded_string = base64.b64encode(f.read())
                     content = encoded_string.decode("utf-8")
-                    optional["scenario"] = content
+                    optional["zip64"] = content
             except Exception as e:
                 logger.error(f"An exception occurred while opening file {int(challenge['scenario_id'])}: {e}")
 

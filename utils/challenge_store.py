@@ -133,6 +133,7 @@ def update_challenge(id: int, *args) -> requests.Response:
             return
 
         payload = args[0]
+    print(payload)
 
     logger.debug(f"Updating challenge with id={id}")
 

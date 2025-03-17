@@ -80,7 +80,10 @@ function loadInfo() {
             // check instance is not expired
             var now = new Date();
             var until = new Date(response.until);
+            
+            console.log(now);
             console.log(until);
+            
             var count_down = until - now;
             console.log(count_down);
             if (count_down > 0) {   // if the instance is not expired         
@@ -110,6 +113,8 @@ function loadInfo() {
             $('#whale-panel-stopped').hide();
             $('#whale-panel-started').show();
             $('#whale-challenge-lan-domain').html(response.connectionInfo);
+        } else if (response.starting) {    // if instance has no until         
+            $('#whale-challenge-lan-domain').html(response.starting);
         } else { // if instance is expired
             $('#whale-panel-started').hide(); // hide the panel instance is up       
             $('#whale-panel-stopped').show(); // show the panel instance is down     
