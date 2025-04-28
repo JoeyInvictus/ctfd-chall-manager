@@ -332,10 +332,10 @@ class DynamicIaCValueChallenge(DynamicValueChallenge):
         data = json.loads(result.text)
 
         # If the instance no longer exists
-        if data["connectionInfo"] == "":
-            logger.debug(f"instance for challenge {challenge.id} no longer exists")
-            logger.info(f"invalid submission due to expired instance for challenge {challenge.id} source {sourceId}")
-            return False, "Expired (the instance must be ON to submit)"
+        # if data["connectionInfo"] == "":
+        #     logger.debug(f"instance for challenge {challenge.id} no longer exists")
+        #     logger.info(f"invalid submission due to expired instance for challenge {challenge.id} source {sourceId}")
+        #     return False, "Expired (the instance must be ON to submit)"
 
         logger.debug("check if flag is provided by CM")
         # If the instance provided its flag
