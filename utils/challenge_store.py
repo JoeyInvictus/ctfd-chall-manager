@@ -20,6 +20,7 @@ def query_challenges() -> list:
     try:
         req = requests.get(url, headers=None, timeout=10) 
         result = req.json()
+        result = result['data']
         logger.debug(f"Successfully queried challenges: {result}")
     except Exception as e:
         logger.error(f"Error querying challenges: {e}")
@@ -38,7 +39,6 @@ def create_challenge(id: int, scenario: str, *args) -> requests.Response:
     cm_api_url = get_config("chall-manager:chall-manager_api_url")
     url = f"{cm_api_url}/challenges/{str(id)}"
 
-    print(id)
     headers = {
         "Content-Type": "application/json"
     }
@@ -65,6 +65,7 @@ def create_challenge(id: int, scenario: str, *args) -> requests.Response:
 def delete_challenge(id: int) -> requests.Response:
     """
     Delete challenge and its instances running.
+    Removed any dependant instances
     
     :param id* (int): 1
 
@@ -104,7 +105,10 @@ def get_challenge(id: int) -> requests.Response:
         logger.error(f"Error getting challenge: {e}")
         raise Exception(f"An exception occurred while communicating with CM: {e}")
     else:
-        if r.status_code != 200:
+        if r.status_code == 404:
+            logger.info(f"Chall-manager could not find the challenge")
+            raise Exception(f"Chall-manager could not find a challenge for this id")
+        elif r.status_code != 200:
             logger.error(f"Error from chall-manager: {json.loads(r.text)}")
             raise Exception(f"Chall-manager returned an error: {json.loads(r.text)}")
  
@@ -133,7 +137,6 @@ def update_challenge(id: int, *args) -> requests.Response:
             return
 
         payload = args[0]
-    print(payload)
 
     logger.debug(f"Updating challenge with id={id}")
 
@@ -145,6 +148,10 @@ def update_challenge(id: int, *args) -> requests.Response:
 
     if "until" in payload.keys():
         updateMask.append("until")
+    
+    # attempt to set default payload if not provided
+    if "timeout" not in payload:
+        payload['timeout'] = 3600
 
     payload["updateMask"] = ",".join(updateMask)
 

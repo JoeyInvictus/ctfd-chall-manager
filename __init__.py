@@ -95,34 +95,21 @@ def load(app):
 
         instances = list()
 
-        for challenge in result['data']:
+        for challenge in result:
             for instance in challenge["instances"]:
                 instances.append(instance)
 
         user_mode = get_config("user_mode")
         for i in instances:
             challenge_name = get_all_challenges(admin=True, id=i["challenge_id"])[0].name
-            print(challenge_name)
             i["challengeName"] = challenge_name
             logger.debug(f"Instance: {i}")
+
+        print(instances)
 
         return render_template("chall_manager_instances.html",
                                instances=instances,
                                user_mode=user_mode)
-
-    # Route to monitor & manage mana
-    @page_blueprint.route('/admin/mana')
-    @admins_only
-    def admin_mana():
-        logger.debug("Accessing admin mana page.")
-        user_mode = get_config("user_mode")
-
-        sources = get_all_mana()
-        logger.info(f"Retrieved mana data for {len(sources)} sources.")
-
-        return render_template("chall_manager_mana.html",
-                               user_mode=user_mode,
-                               sources=sources)
 
     # Route to monitor & manage panel
     @page_blueprint.route('/admin/panel')

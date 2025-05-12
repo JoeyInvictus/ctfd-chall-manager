@@ -7,12 +7,13 @@ from .chall_manager_error import ChallManagerException
 
 logger = configure_logger(__name__)
 
-def create_instance(challengeId: int, sourceId: int, userEmail: str) -> requests.Response | Exception: 
+def create_instance(challengeId: int, userId: int, userEmail: str) -> requests.Response | Exception: 
     """
     Spins up a challenge instance, iif the challenge is registered and no instance is yet running.
     
     :param challengeId: id of challenge for the instance
     :param userId: id of source for the instance
+    :param userEmail: str UPN of the requesting user
     :return Response: of chall-manager API
     :raise Exception:
     """
@@ -21,7 +22,7 @@ def create_instance(challengeId: int, sourceId: int, userEmail: str) -> requests
     url = f"{cm_api_url}/instances/{challengeId}"
 
     payload = {
-        "user_id": sourceId,
+        "user_id": userId,
         "email": userEmail
     }
 
@@ -29,7 +30,7 @@ def create_instance(challengeId: int, sourceId: int, userEmail: str) -> requests
         "Content-Type": "application/json"
     }
 
-    logger.debug(f"Creating instance for challengeId={challengeId}, sourceId={sourceId}")
+    logger.debug(f"Creating instance for challengeId={challengeId}, userId={userId}")
 
     try:        
         r = requests.post(url, data=json.dumps(payload), headers=headers)
@@ -38,26 +39,27 @@ def create_instance(challengeId: int, sourceId: int, userEmail: str) -> requests
         logger.error(f"Error creating instance: {e}")
         raise Exception(f"An exception occurred while communicating with CM: {e}")
     else:
+        # attempt to handle the error and communicate to the end user what is going wrong
         if r.status_code != 200:
             message = r.json()["message"]
-            logger.error(f"chall-manager return an error: {message}")
+            logger.error(f"{message}")
             raise ChallManagerException(message=message)
     return r
 
-def delete_instance(challengeId: int , sourceId: int) -> requests.Response | Exception:
+def delete_instance(challengeId: int , userId: int) -> requests.Response | Exception:
     """
     After completion, the challenge instance is no longer required. This spins down the instance and removes if from filesystem.
     
     :param challengeId: id of challenge for the instance
-    :param sourceId: id of source for the instance
+    :param userId: id of source for the instance
     :return Response: of chall-manager API
     :raise Exception:
     """
 
     cm_api_url = get_config("chall-manager:chall-manager_api_url")
-    url = f"{cm_api_url}/instances/{challengeId}/{sourceId}"
+    url = f"{cm_api_url}/instances/{challengeId}/{userId}"
 
-    logger.debug(f"Deleting instance for challengeId={challengeId}, sourceId={sourceId}")
+    logger.debug(f"Deleting instance for challengeId={challengeId}, userId={userId}")
 
     try:        
         r = requests.delete(url)
@@ -73,20 +75,20 @@ def delete_instance(challengeId: int , sourceId: int) -> requests.Response | Exc
     return r
 
 
-def get_instance(challengeId: int, sourceId: int) -> requests.Response | Exception:
+def get_instance(challengeId: int, userId: int) -> requests.Response | Exception:
     """
     Once created, you can retrieve the instance information. If it has not been created yet, returns an error.
     
     :param challengeId: id of challenge for the instance
-    :param sourceId: id of source for the instance
+    :param userId: id of source for the instance
     :return Response: of chall-manager API
     :raise Exception:
     """
 
     cm_api_url = get_config("chall-manager:chall-manager_api_url")
-    url = f"{cm_api_url}/instances/{challengeId}/{sourceId}"
+    url = f"{cm_api_url}/instances/{challengeId}/{userId}"
 
-    logger.debug(f"Getting instance information for challengeId={challengeId}, sourceId={sourceId}")
+    logger.debug(f"Getting instance information for challengeId={challengeId}, userId={userId}")
 
     try:        
         r = requests.get(url, timeout=10)
@@ -96,6 +98,7 @@ def get_instance(challengeId: int, sourceId: int) -> requests.Response | Excepti
         raise Exception(f"An exception occurred while communicating with CM: {e}")
     else:
         if r.status_code == 404:
+            # return nothing to end user. If its a 404 then the instance just does not exist (yet)
             pass
         elif r.status_code != 200:
             logger.info(f"No instance on chall-manager: {json.loads(r.text)}")
@@ -103,19 +106,21 @@ def get_instance(challengeId: int, sourceId: int) -> requests.Response | Excepti
 
     return r
 
-def update_instance(challengeId: int, sourceId: int) -> requests.Response | Exception:
+def update_instance(challengeId: int, userId: int) -> requests.Response | Exception:
     """
     This will set the until date to the request time for the challenge timeout.
     
     :param challengeId: id of challenge for the instance
-    :param sourceId: id of source for the instance
+    :param userId: id of source for the instance
     :return Response: of chall-manager API
     :raise Exception:
     """
 
     cm_api_url = get_config("chall-manager:chall-manager_api_url")
-    url = f"{cm_api_url}/instances/{challengeId}/{sourceId}"
+    url = f"{cm_api_url}/instances/{challengeId}/{userId}"
 
+
+    # extend with an hour by default
     payload = {
         "new_timeout": 3600
     }
@@ -124,7 +129,7 @@ def update_instance(challengeId: int, sourceId: int) -> requests.Response | Exce
         "Content-Type": "application/json"
     }
 
-    logger.debug(f"Updating instance for challengeId={challengeId}, sourceId={sourceId}")
+    logger.debug(f"Updating instance for challengeId={challengeId}, sourceId={userId}")
 
     try:        
         r = requests.put(url, data=json.dumps(payload), headers=headers)
@@ -141,22 +146,22 @@ def update_instance(challengeId: int, sourceId: int) -> requests.Response | Exce
  
     return r
 
-def query_instance(sourceId: int) -> list | Exception:
+def query_instance(userId: int) -> list | Exception:
     """
-    This will return a list with all instances that exists on chall-manager for the sourceId given.
+    This will return a list with all instances that exists on chall-manager for the userId given.
 
-    :param sourceId: id of source for the instance
-    :return list: all instances for the sourceId (e.g [{sourceId:x, challengeId, y},..])
+    :param userId: id of source for the instance
+    :return list: all instances for the userId (e.g [{userId:x, challengeId, y},..])
     """
     
     cm_api_url = get_config("chall-manager:chall-manager_api_url")
-    url = f"{cm_api_url}/instances/user/{sourceId}"
+    url = f"{cm_api_url}/instances/user/{userId}"
 
     s = requests.Session()
 
     result = []
 
-    logger.debug(f"Querying instances for sourceId={sourceId}")
+    logger.debug(f"Querying instances for sourceId={userId}")
 
     try:
         with s.get(url, headers=None, stream=True, timeout=10) as resp:

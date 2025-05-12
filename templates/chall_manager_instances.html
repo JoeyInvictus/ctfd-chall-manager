@@ -8,9 +8,6 @@
         <a class="nav-link active" href="#">Instances</a>
     </li>
     <li class="nav-item">
-        <a class="nav-link" href="/plugins/ctfd-chall-manager/admin/mana">🔗 Mana</a>
-    </li>
-    <li class="nav-item">
         <a class="nav-link" href="/plugins/ctfd-chall-manager/admin/panel">🔗 Panel</a>
     </li>
 {% endblock %}
@@ -39,13 +36,12 @@
                     </div>
                 </th>
                 <th class="sort-col text-center"><b>Challenge</b></td>
-                <th class="sort-col text-center"><b>Source</b></td>
+                <th class="sort-col text-center"><b>User</b></td>
                 <th class="text-center"><b>Connection Info</b></td>
-                <th class="text-center"><b>Flag</b></td>
+                <th class="text-center"><b>Running</b></td>
                 <th class="sort-col text-center"><b>Since</b></td>
-                <th class="sort-col text-center"><b>Until</b></td>
-                <th class="sort-col text-center"><b>Last Renew</b></td>
-                <th class="text-center"><b>Renew</b></td>
+                <th class="sort-col text-center"><b>Extra time (s)</b></td>
+                <th class="text-center"><b>Destroyed at</b></td>
                 <th class="text-center"><b>Restart</b></td>
                 <th class="text-center"><b>Delete</b></td>
             </tr>
@@ -73,11 +69,11 @@
                     <td class="text-center">
                         {% if user_mode == "teams" %}
                         <a href="{{ url_for('admin.teams_detail', team_id=instance.user_id) }}">
-                            {{ instance.user_id }}
+                            {{ instance.email }}
                         </a>
                         {% else %}
                         <a href="{{ url_for('admin.users_detail', user_id=instance.user_id) }}">
-                            {{ instance.user_id }}
+                            {{ instance.email }}
                         </a>
                         {% endif %}
                     </td>
@@ -91,38 +87,27 @@
                     </td>
 
                     <td class="text-center">
-                        {% if instance.flag %}
-                        <button class="btn btn-link p-0 click-copy"
-                            data-test-id="flag-{{ instance.user_id }}"
-                            data-copy="{{ instance.flag }}"
-                            title="{{ instance.flag }}">
-                            <i class="fa-solid fa-copy"></i>
-                        </button>
-                        {% else %}
-                        -
-                        {% endif %}
+                        {{ instance.running }}
                     </td>
 
                     <td class="text-center">
                         {% set list1 = instance.created_at.split('T') %}
                         {{ list1[0] }} &nbsp;
-                        {{ list1[1][0:8] }}
+                        {{ list1[1][0:8] }}UTC
                     </td>
 
                     <td class="text-center">
-                        {% if instance.until %}
-                        {% set list1 = instance.created_at.split('T') %} <!--until-->
-                        {{ list1[0] }} &nbsp;
-                        {{ list1[1][0:8] }}
+                       {{ instance.extra_time }} <!--extra time-->
+                    </td>
+
+                    <td class="text-center">
+                        {% if instance.destroyed_at %}
+                            {% set list1 = instance.destroyed_at.split('T') %}
+                            {{ list1[0] }} &nbsp;
+                            {{ list1[1][0:8] }}UTC
                         {% else %}
-                        - 
-                        {% endif %}
-                    </td>
-
-                    <td class="text-center">
-                        {% set list1 = instance.created_at.split('T') %} <!--lastrenew-->
-                        {{ list1[0] }} &nbsp;
-                        {{ list1[1][0:8] }}
+                            -
+                        {% endif%}
                     </td>
 
                     <td class="text-center">                        
