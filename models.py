@@ -1,4 +1,9 @@
 from flask import Blueprint, request, current_app
+
+from CTFd.exceptions.challenges import (  # type: ignore
+    ChallengeCreateException,
+    ChallengeUpdateException,
+)
 from CTFd.models import (  # type: ignore
     Flags,
     Files,
@@ -35,6 +40,11 @@ class DynamicIaCChallenge(DynamicChallenge):
     timeout = db.Column(db.Integer)
     shared = db.Column(db.Boolean, default=False)
     destroy_on_flag = db.Column(db.Boolean, default=False)
+    additional = db.Column(db.JSON)
+
+    # Pooler feature
+    min = db.Column(db.Integer, default=0) 
+    max = db.Column(db.Integer, default=0)
 
     scenario_id = db.Column(
         db.Integer, db.ForeignKey("files.id")
@@ -87,7 +97,7 @@ class DynamicIaCValueChallenge(DynamicValueChallenge):
 
         # lint the plugin attributes by removing empty values
         for key in list(data.keys()): # use list(data.keys()) to prevent RuntimeError
-            if key in ["mana_cost", "until", "timeout", "shared", "destroy_on_flag", "scenario_id"] and data[key] == "":
+            if key in ["mana_cost", "until", "timeout", "shared", "destroy_on_flag", "scenario_id", "min", "max"] and data[key] == "":
                 data.pop(key)
 
         # convert string value to boolean
@@ -99,7 +109,35 @@ class DynamicIaCValueChallenge(DynamicValueChallenge):
 
         if "scenario_id" not in data.keys():
             logger.error("missing mandatory value in challenge creation")
-            raise Exception('missing mandatory value in challenge creation')
+            raise ChallengeCreateException('missing mandatory value in challenge creation')
+
+        if "min" in data.keys():
+            try:
+                data["min"] = int(data["min"])
+            except:
+                logger.error(f"min cannot be convert into int, got {data['min']}")
+                raise ChallengeCreateException(f"min cannot be convert into int, got {data['min']}")
+
+        if "max" in data.keys():
+            try:
+                data["max"] = int(data["max"])
+            except:
+                logger.error(f"max cannot be convert into int, got {data['max']}")
+                raise ChallengeCreateException(f"max cannot be convert into int, got {data['max']}")
+
+        # convert string into dict in CTFd
+        if "additional" in data.keys():
+            if isinstance(data["additional"], dict):
+                try:
+                    logger.info("Subscription attribute is set. Parsing it")
+                    data["subscription_required"] = data["additional"]["subscription_required"]
+
+                except json.JSONDecodeError:
+                    logger.error(f"An exception occurred while decoding additional configuration, found {data['additional']} : {e}")
+                    raise ChallengeCreateException(f"An exception occurred while decoding additional configuration, found {data['additional']} : {e}")
+                
+            elif not isinstance(data["additional"], dict):
+                raise ChallengeCreateException(f"An exception occurred while decoding additional configuration, found {data['additional']} : {e}")
 
         challenge = cls.challenge_model(**data)
         db.session.add(challenge)
@@ -119,7 +157,7 @@ class DynamicIaCValueChallenge(DynamicValueChallenge):
                 content = encoded_string.decode("utf-8")
         except Exception as e:
             logger.error(f"An exception occurred while opening file {int(data['scenario_id'])}: {e}")
-            return
+            raise ChallengeCreateException(f"An exception occurred while opening file {int(data['scenario_id'])}: {e}")
 
         # check optional configuration for dynamic_iac
         # init optional configuration
@@ -130,9 +168,24 @@ class DynamicIaCValueChallenge(DynamicValueChallenge):
         if "until" in data.keys():
             optional["until"] = f"{data['until']}"
 
+        if "min" in data.keys():
+            try:
+                optional["min"] = int(data["min"])
+            except:
+                logger.warning(f"min cannot be convert into int, got {data['min']}")
+
+        if "max" in data.keys():
+            try:
+                optional["max"] = int(data["max"])
+            except:
+                logger.warning(f"min cannot be convert into int, got {data['max']}")
+
+        # back-end does not need to know about additional this
+
         # handle challenge creation on chall-manager
         try:
             logger.debug(f"creating challenge {challenge.id} on CM")
+            print(optional)
             create_challenge(int(challenge.id), content, optional)
             logger.info(f"challenge {challenge.id} created successfully on CM")
         except Exception as e:
@@ -140,7 +193,7 @@ class DynamicIaCValueChallenge(DynamicValueChallenge):
             logger.debug("deleting challenge on CTFd due to an issue while creating it on CM")
             cls.delete(challenge)
             logger.info(f"challenge {challenge.id} deleted sucessfully")
-            return
+            raise ChallengeCreateException(f"An exception occurred while sending challenge {challenge.id} to CM: {e}")
 
         # return CTFd Challenge if no error
         return challenge
@@ -163,6 +216,9 @@ class DynamicIaCValueChallenge(DynamicValueChallenge):
                 "shared": challenge.shared,
                 "destroy_on_flag": challenge.destroy_on_flag,
                 "scenario_id": challenge.scenario_id,
+                "additional": challenge.additional if current_user.is_admin() else {}, # do not display additional for all user, can contains secrets
+                "min": challenge.min,
+                "max": challenge.max
             }
         )
 
@@ -200,11 +256,11 @@ class DynamicIaCValueChallenge(DynamicValueChallenge):
                     except Exception as e:
                         logger.warning(f"Failed to delete challenge {challenge.id} for source {i['sourceId']}, instance may not exist")
 
-            else:
-                try:
-                    delete_instance(challenge.id, 0)
-                except Exception as e:
-                    logger.warning(f"Failed to delete challenge {challenge.id} for source 0, instance may not exist")
+            # else:
+            #     try:
+            #         delete_instance(challenge.id, 0)
+            #     except Exception as e:
+            #         logger.warning(f"Failed to delete challenge {challenge.id} for source 0, instance may not exist")
 
 
         # Update the destroy on flag boolean
@@ -226,6 +282,21 @@ class DynamicIaCValueChallenge(DynamicValueChallenge):
             optional["timeout"] = None
             setattr(challenge, "timeout", "")
 
+        # convert string into dict in CTFd           
+        if "additional" in data.keys():
+            if isinstance(data["additional"], str):
+                try:
+                    logger.info("Subscription attribute is set. Parsing it")
+                    data["subscription_required"] = json.loads(data["additional"])["subscription_required"]
+                    setattr(challenge, "subscription_required", data["subscription_required"])
+
+                except json.JSONDecodeError:
+                    logger.error(f"An exception occurred while decoding additional configuration, found {data['additional']} : {e}")
+                    raise ChallengeCreateException(f"An exception occurred while decoding additional configuration, found {data['additional']} : {e}")
+                
+            elif not isinstance(data["additional"], dict):
+                raise ChallengeCreateException(f"An exception occurred while decoding additional configuration, found {data['additional']}")
+
         # don't touch this
         for attr, value in data.items():
             # We need to set these to floats so that the next operations don't operate on strings
@@ -237,12 +308,17 @@ class DynamicIaCValueChallenge(DynamicValueChallenge):
         if "timeout" in data.keys():
             optional["timeout"] = None
             if data["timeout"] != "":
-                optional["timeout"] = f"{data['timeout']}s"  # 500 -> 500s proto standard
+                optional["timeout"] = f"{data['timeout']}"  # 500 -> 500s proto standard
 
         if "until" in data.keys():
             optional["until"] = None
             if data["until"] != "":
                 optional["until"] = f"{data['until']}"
+
+        # if "additional" in data.keys():
+        #     logger.debug(f"retrieving additional configuration for challenge {challenge.id}: {data['additional']}")
+        #     optional["additional"] = data["additional"]
+
 
         if "updateStrategy" in data.keys():
             optional["updateStrategy"] = data["updateStrategy"]
@@ -260,12 +336,22 @@ class DynamicIaCValueChallenge(DynamicValueChallenge):
                     optional["zip64"] = content
             except Exception as e:
                 logger.error(f"An exception occurred while opening file {int(challenge['scenario_id'])}: {e}")
+                raise ChallengeUpdateException(f"An exception occurred while opening file {int(challenge['scenario_id'])}: {e}")
+
+        if "min" in data.keys():
+            optional["min"] = data["min"]
+
+        if "max" in data.keys():
+            optional["max"] = data["max"]
 
         # send updates to CM
         try:
+            print(type(optional))
             update_challenge(challenge.id, optional)
         except Exception as e:
-            logger.error(f"Error while patching the challenge: {e}")
+            logger.error(f"{e}")
+            print("ERROR HAPPENING HERE::!!!")
+            raise ChallengeUpdateException(f"Error while patching the challenge: {e}")
 
         return super().calculate_value(challenge)
 

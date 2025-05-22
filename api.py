@@ -14,6 +14,7 @@ from .utils.logger import configure_logger
 from .utils.chall_manager_error import ChallManagerException
 from .decorators import challenge_visible
 
+
 # Configure logger for this module
 logger = configure_logger(__name__)
 
@@ -251,6 +252,9 @@ class UserInstance(Resource):
         if 'until' in result.keys():
             data['until'] = result['until']
 
+        if 'since' in result.keys():
+            data['since'] = result['since']
+
         return {'success': True, 'data': data}
 
     @staticmethod
@@ -295,7 +299,17 @@ class UserInstance(Resource):
                 'message': f"Error while communicating with CM : {e}",
             }}
 
-        return {'success': True, 'data': {}}
+
+        msg = "Your instance has been renewed !"
+        a = json.loads(r.text)
+
+        if challenge.until and challenge.timeout:
+            if challenge.until  == a["until"]:
+                msg = "You have renewed your instance, but it can't be renewed anymore !"
+
+        return {'success': True, 'data': {
+            'message': msg
+        }}
 
     @staticmethod
     @authed_only

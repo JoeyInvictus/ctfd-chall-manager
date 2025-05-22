@@ -45,6 +45,15 @@ def create_challenge(id: int, scenario: str, *args) -> requests.Response:
 
     payload = {}
 
+    if len(args) != 0:
+        if type(args[0]) is not dict:
+            logger.error(f"invalid argument, got {args[0]} for type {type(args[0])}, dict is expected")
+            raise Exception(f"invalid argument, got {args[0]} for type {type(args[0])}, dict is expected")
+
+        payload = args[0]
+    
+    print(f"args are: {args}")
+
     logger.debug(f"Creating challenge with id={id}")
 
     payload["zip64"] = scenario
@@ -80,8 +89,8 @@ def delete_challenge(id: int) -> requests.Response:
         r = requests.delete(url)
         logger.debug(f"Received response: {r.status_code} {r.text}")
     except Exception as e:
-        logger.error(f"Error deleting challenge: {e}")
-        return e
+        logger.error(f"error deleting challenge: {e}")
+        raise Exception(f"error deleting challenge: {e}")
     
     return r
 
@@ -98,7 +107,7 @@ def get_challenge(id: int) -> requests.Response:
     logger.debug(f"Getting challenge information for id={id}")
 
     try:
-        r = requests.get(url, timeout=10)
+        r = requests.get(url, timeout=30)
         logger.debug(f"Received response: {r.status_code} {r.text}")
 
     except Exception as e:
@@ -134,26 +143,17 @@ def update_challenge(id: int, *args) -> requests.Response:
     if len(args) != 0:
         if type(args[0]) is not dict:
             logger.error("Invalid arguments provided for updating challenge")
-            return
+            raise Exception(f"Error deleting challenge: {e}")
 
         payload = args[0]
 
+
     logger.debug(f"Updating challenge with id={id}")
-
-    updateMask = []
-
-
-    if "timeout" in payload.keys():
-        updateMask.append("timeout")
-
-    if "until" in payload.keys():
-        updateMask.append("until")
     
     # attempt to set default payload if not provided
     if "timeout" not in payload:
         payload['timeout'] = 3600
 
-    payload["updateMask"] = ",".join(updateMask)
 
     try:
         r = requests.put(url, data=json.dumps(payload), headers=headers)
@@ -162,8 +162,7 @@ def update_challenge(id: int, *args) -> requests.Response:
         logger.error(f"Error updating challenge: {e}")
         raise Exception(f"An exception occurred while communicating with CM: {e}")
     else:
-        if r.status_code != 200:
+        if r.status_code != 204:
             logger.error(f"Error from chall-manager: {json.loads(r.text)}")
             raise Exception(f"Chall-manager returned an error: {json.loads(r.text)}")
-    
     return r
