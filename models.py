@@ -1,5 +1,9 @@
 from flask import Blueprint, request, current_app
 
+import os
+import base64
+import json
+
 from CTFd.exceptions.challenges import (  # type: ignore
     ChallengeCreateException,
     ChallengeUpdateException,
@@ -9,7 +13,6 @@ from CTFd.models import (  # type: ignore
     Files,
     db,
 )
-from CTFd.plugins.challenges import BaseChallenge  # type: ignore
 from CTFd.plugins.flags import FlagException, get_flag_class  # type: ignore
 from CTFd.utils import user as current_user  # type: ignore
 from CTFd.utils import get_config  # type: ignore
@@ -24,13 +27,12 @@ from .utils.challenge_store import (
 from .utils.instance_manager import delete_instance, get_instance
 from .utils.logger import configure_logger
 
-import os
-import base64
-import json
-
 logger = configure_logger(__name__)
 
 class DynamicIaCChallenge(DynamicChallenge):
+    '''
+    Dynamic IaC challenge class
+    '''
     __mapper_args__ = {"polymorphic_identity": "dynamic_iac"}
     id = db.Column(
         db.Integer, db.ForeignKey("dynamic_challenge.id", ondelete="CASCADE"), primary_key=True
@@ -60,6 +62,9 @@ class DynamicIaCChallenge(DynamicChallenge):
 
 
 class DynamicIaCValueChallenge(DynamicValueChallenge):
+    '''
+    CTFd boilerplate code 
+    '''
     id = "dynamic_iac"  # Unique identifier used to register challenges
     name = "dynamic_iac"  # Name of a challenge type
     templates = {  # Handlebars templates used for each aspect of challenge editing & viewing
@@ -127,17 +132,19 @@ class DynamicIaCValueChallenge(DynamicValueChallenge):
 
         # convert string into dict in CTFd
         if "additional" in data.keys():
-            if isinstance(data["additional"], dict):
-                try:
+            try:
+                if isinstance(data["additional"], str):
+                    additional = json.loads(data["additional"])
+            except json.JSONDecodeError as e:
+                raise ChallengeCreateException(f"Invalid JSON in 'additional': {e}")
+            
+            if isinstance(additional, dict):
+                if isinstance(additional["subscription_required"], dict):
                     logger.info("Subscription attribute is set. Parsing it")
-                    data["subscription_required"] = data["additional"]["subscription_required"]
+                    data["subscription_required"] = additional["subscription_required"]
 
-                except json.JSONDecodeError:
-                    logger.error(f"An exception occurred while decoding additional configuration, found {data['additional']} : {e}")
-                    raise ChallengeCreateException(f"An exception occurred while decoding additional configuration, found {data['additional']} : {e}")
-                
-            elif not isinstance(data["additional"], dict):
-                raise ChallengeCreateException(f"An exception occurred while decoding additional configuration, found {data['additional']} : {e}")
+            elif not isinstance(additional, dict):
+                raise ChallengeCreateException(f"An exception occurred while decoding additional configuration, found {data['additional']}")
 
         challenge = cls.challenge_model(**data)
         db.session.add(challenge)
@@ -163,7 +170,7 @@ class DynamicIaCValueChallenge(DynamicValueChallenge):
         # init optional configuration
         optional = {}
         if "timeout" in data.keys():
-            optional["timeout"] = f"{data['timeout']}s"  # 500 -> 500s proto standard
+            optional["timeout"] = data['timeout']  # 500 -> 500s proto standard
 
         if "until" in data.keys():
             optional["until"] = f"{data['until']}"
@@ -185,7 +192,6 @@ class DynamicIaCValueChallenge(DynamicValueChallenge):
         # handle challenge creation on chall-manager
         try:
             logger.debug(f"creating challenge {challenge.id} on CM")
-            print(optional)
             create_challenge(int(challenge.id), content, optional)
             logger.info(f"challenge {challenge.id} created successfully on CM")
         except Exception as e:
@@ -208,6 +214,7 @@ class DynamicIaCValueChallenge(DynamicValueChallenge):
         """
         challenge = DynamicIaCChallenge.query.filter_by(id=challenge.id).first()
         data = super().read(challenge)
+
         data.update(
             {
                 "mana_cost": challenge.mana_cost,
@@ -216,12 +223,12 @@ class DynamicIaCValueChallenge(DynamicValueChallenge):
                 "shared": challenge.shared,
                 "destroy_on_flag": challenge.destroy_on_flag,
                 "scenario_id": challenge.scenario_id,
-                "additional": challenge.additional if current_user.is_admin() else {}, # do not display additional for all user, can contains secrets
+                "additional": json.loads(challenge.additional) if current_user.is_admin() else {}, # do not display additional for all user, can contains secrets
                 "min": challenge.min,
-                "max": challenge.max
+                "max": challenge.max,
+                "subscription_required": json.loads(challenge.additional)['subscription_required'] if "subscription_required" in challenge.additional else challenge.subscription_required
             }
         )
-
         return data
 
     @classmethod
@@ -256,13 +263,6 @@ class DynamicIaCValueChallenge(DynamicValueChallenge):
                     except Exception as e:
                         logger.warning(f"Failed to delete challenge {challenge.id} for source {i['sourceId']}, instance may not exist")
 
-            # else:
-            #     try:
-            #         delete_instance(challenge.id, 0)
-            #     except Exception as e:
-            #         logger.warning(f"Failed to delete challenge {challenge.id} for source 0, instance may not exist")
-
-
         # Update the destroy on flag boolean
         if "destroy_on_flag" in data.keys():
             data["destroy_on_flag"] = convert_to_boolean(data["destroy_on_flag"])
@@ -282,20 +282,36 @@ class DynamicIaCValueChallenge(DynamicValueChallenge):
             optional["timeout"] = None
             setattr(challenge, "timeout", "")
 
-        # convert string into dict in CTFd           
+        # convert string into dict in CTFd  
+        # in this additional block we care about the subscription_required
         if "additional" in data.keys():
-            if isinstance(data["additional"], str):
+            # check if it is decodable and exists
+            try:
+                logger.info("additional data found during update")
+                if isinstance(data["additional"], str):
+                    additional = json.loads(data["additional"])
+                elif isinstance(data["additional"], dict):
+                    additional = data["additional"]
+            except json.JSONDecodeError as e:
+                raise ChallengeCreateException(f"Invalid JSON in 'additional': {e}")
+            
+            # check if it is a dict object
+            if isinstance(additional, dict):
                 try:
+                    # attempt to set it as an attribute and update it by calling calculate_value to save it
                     logger.info("Subscription attribute is set. Parsing it")
-                    data["subscription_required"] = json.loads(data["additional"])["subscription_required"]
-                    setattr(challenge, "subscription_required", data["subscription_required"])
-
-                except json.JSONDecodeError:
-                    logger.error(f"An exception occurred while decoding additional configuration, found {data['additional']} : {e}")
-                    raise ChallengeCreateException(f"An exception occurred while decoding additional configuration, found {data['additional']} : {e}")
+                    optional['subscription_required'] = additional['subscription_required']
+                    setattr(challenge, "subscription_required", additional['subscription_required'])
+                    return super().calculate_value(challenge)
                 
-            elif not isinstance(data["additional"], dict):
-                raise ChallengeCreateException(f"An exception occurred while decoding additional configuration, found {data['additional']}")
+                except KeyError:
+                    logger.error(f"An exception occurred while decoding additional configuration, found {additional} : {e}")
+                    raise ChallengeCreateException(f"An exception occurred while decoding additional configuration, found {additional} : {e}")
+
+            elif not isinstance(additional, dict):
+                raise ChallengeCreateException(f"An exception occurred while decoding additional configuration, found {additional}")
+        else:
+            logger.info("Additional attribute not set")
 
         # don't touch this
         for attr, value in data.items():
@@ -303,7 +319,7 @@ class DynamicIaCValueChallenge(DynamicValueChallenge):
             if attr in ("initial", "minimum", "decay"):
                 value = float(value)
             setattr(challenge, attr, value)
-
+        
         # Patch Challenge on CM
         if "timeout" in data.keys():
             optional["timeout"] = None
@@ -314,11 +330,6 @@ class DynamicIaCValueChallenge(DynamicValueChallenge):
             optional["until"] = None
             if data["until"] != "":
                 optional["until"] = f"{data['until']}"
-
-        # if "additional" in data.keys():
-        #     logger.debug(f"retrieving additional configuration for challenge {challenge.id}: {data['additional']}")
-        #     optional["additional"] = data["additional"]
-
 
         if "updateStrategy" in data.keys():
             optional["updateStrategy"] = data["updateStrategy"]
@@ -346,11 +357,9 @@ class DynamicIaCValueChallenge(DynamicValueChallenge):
 
         # send updates to CM
         try:
-            print(type(optional))
             update_challenge(challenge.id, optional)
         except Exception as e:
             logger.error(f"{e}")
-            print("ERROR HAPPENING HERE::!!!")
             raise ChallengeUpdateException(f"Error while patching the challenge: {e}")
 
         return super().calculate_value(challenge)
