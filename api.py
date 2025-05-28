@@ -1,4 +1,5 @@
 import json
+from datetime import timedelta, datetime
 
 from flask import request
 from flask_restx import Namespace, Resource, abort
@@ -109,7 +110,7 @@ class AdminInstance(Resource):
             r = update_instance(challengeId, sourceId)
             logger.info(f"Instance for challengeId: {challengeId}, sourceId: {sourceId} updated successfully.")
         except Exception as e:
-            logger.error(f"Error while updating instance: {e}")
+            logger.error(f"Error while updating instance (admin): {e}")
             return {'success': False, 'data': {
                 'message': f"Error while communicating with CM : {e}",
             }}
@@ -157,7 +158,7 @@ class UserInstance(Resource):
         logger.info(f"user {sourceId} request GET on challenge {challengeId}")
 
         if get_config("user_mode") == "teams":
-            sourceId = str(current_user.get_current_user().team_id)        
+            sourceId = str(current_user.get_current_user().team_id)       
 
         if not challengeId or not sourceId:
             logger.warning("Missing argument: challengeId or sourceId")
@@ -187,14 +188,22 @@ class UserInstance(Resource):
             if 'connectionInfo' in result['data'].keys():
                 data['connectionInfo'] = result['data']['connectionInfo']
 
-            if 'until' in result.keys():
-                data['until'] = result['until']
+            # we moved this functionality to the front-end
+            # establish the right ISO format
+            # we assume the default for a lab is 3600
+            if 'created_at' in result['data'].keys():
+                created_at = datetime.fromisoformat(result['data']['created_at'])
+                extra_time = int(result['data']['extra_time'] + 3600) #default 1 hour
+                data['until'] = (created_at + timedelta(seconds=extra_time)).isoformat()
+                data['since'] = created_at.isoformat()
 
-            if result['data']['connectionInfo'] == None:
+            if result['data']['connectionInfo'] is None:
                 data['starting'] = "starting challenge..."
 
-        except Exception:
+        except Exception as e:
+            logger.error(f"Error while returning connection info for challenge : {e}")
             data = []
+
         print(data)
         return {'success': True, 'data': data}
 
@@ -246,6 +255,7 @@ class UserInstance(Resource):
         # return only necessary values
         data = {}
         result = json.loads(r.text)
+
         if 'connectionInfo' in result.keys():
             data['connectionInfo'] = result['connectionInfo']
 

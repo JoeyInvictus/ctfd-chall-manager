@@ -133,17 +133,15 @@ def update_instance(challengeId: int, userId: int) -> requests.Response | Except
 
     try:        
         r = requests.put(url, data=json.dumps(payload), headers=headers)
-        logger.debug(f"Received response: {r.status_code} {r.text}")
+        logger.info(f"Received response: {r.status_code} {r.text}")
     except Exception as e:
+        print(f"error at except: {e}")
         logger.error(f"Error updating instance: {e}")
         raise Exception(f"An exception occurred while communicating with CM: {e}")
-    else:
-        if r.status_code != 200:
-            if r.json()["code"] == 2:
-                message = r.json()["message"]
-                logger.error(f"chall-manager return an error: {message}")
-                raise ChallManagerException(message=message)
- 
+
+    if r.status_code != 200:
+        message = r.json()["message"]
+        raise ChallManagerException(message=message)
     return r
 
 def query_instance(userId: int) -> list | Exception:

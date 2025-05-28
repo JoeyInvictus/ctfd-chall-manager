@@ -1,8 +1,8 @@
-from flask import Blueprint, request, current_app
-
 import os
 import base64
 import json
+
+from flask import Blueprint, request, current_app
 
 from CTFd.exceptions.challenges import (  # type: ignore
     ChallengeCreateException,
@@ -31,7 +31,7 @@ logger = configure_logger(__name__)
 
 class DynamicIaCChallenge(DynamicChallenge):
     '''
-    Dynamic IaC challenge class
+    Dynamic IaC challenge class, uses DynamicChallenge as base
     '''
     __mapper_args__ = {"polymorphic_identity": "dynamic_iac"}
     id = db.Column(
@@ -45,7 +45,7 @@ class DynamicIaCChallenge(DynamicChallenge):
     additional = db.Column(db.JSON)
 
     # Pooler feature
-    min = db.Column(db.Integer, default=0) 
+    min = db.Column(db.Integer, default=0)
     max = db.Column(db.Integer, default=0)
 
     scenario_id = db.Column(
@@ -58,7 +58,6 @@ class DynamicIaCChallenge(DynamicChallenge):
 
     def __str__(self):
         return f"DynamicIaCChallenge(id={self.id}, mana_cost={self.mana_cost}, until={self.until}, timeout={self.timeout}, shared={self.shared}, destroy_on_flag={self.destroy_on_flag})"
-
 
 
 class DynamicIaCValueChallenge(DynamicValueChallenge):
@@ -88,6 +87,7 @@ class DynamicIaCValueChallenge(DynamicValueChallenge):
         static_folder="assets",
     )
     challenge_model = DynamicIaCChallenge
+
 
     @classmethod
     def create(cls, request):
@@ -135,6 +135,8 @@ class DynamicIaCValueChallenge(DynamicValueChallenge):
             try:
                 if isinstance(data["additional"], str):
                     additional = json.loads(data["additional"])
+                elif isinstance(data["additional"], dict):
+                    additional = data["additional"]
             except json.JSONDecodeError as e:
                 raise ChallengeCreateException(f"Invalid JSON in 'additional': {e}")
             
@@ -204,6 +206,7 @@ class DynamicIaCValueChallenge(DynamicValueChallenge):
         # return CTFd Challenge if no error
         return challenge
 
+
     @classmethod
     def read(cls, challenge):
         """
@@ -223,10 +226,10 @@ class DynamicIaCValueChallenge(DynamicValueChallenge):
                 "shared": challenge.shared,
                 "destroy_on_flag": challenge.destroy_on_flag,
                 "scenario_id": challenge.scenario_id,
-                "additional": json.loads(challenge.additional) if current_user.is_admin() else {}, # do not display additional for all user, can contains secrets
+                "additional": challenge.additional if current_user.is_admin() else {}, # do not display additional for all user, can contains secrets
                 "min": challenge.min,
                 "max": challenge.max,
-                "subscription_required": json.loads(challenge.additional)['subscription_required'] if "subscription_required" in challenge.additional else challenge.subscription_required
+                #"subscription_required": json.loads(challenge.additional)['subscription_required'] if "subscription_required" in challenge.additional else challenge.subscription_required
             }
         )
         return data
@@ -364,6 +367,7 @@ class DynamicIaCValueChallenge(DynamicValueChallenge):
 
         return super().calculate_value(challenge)
 
+
     @classmethod
     def delete(cls, challenge):
         """
@@ -385,13 +389,11 @@ class DynamicIaCValueChallenge(DynamicValueChallenge):
                 logger.info(f"challenge {challenge.id} on CM delete successfully.")
             except Exception as e:
                 logger.error(f"Failed to delete challenge {challenge.id} from CM: {e}")
-        
-        
-                     
         # then delete it on CTFd
         logger.debug(f"deleting challenge {challenge.id} on CTFd")
         super().delete(challenge)
         logger.info(f"challenge {challenge.id} on CTFd deleted successfully.")
+
 
     @classmethod
     def attempt(cls, challenge, request):
@@ -453,11 +455,8 @@ class DynamicIaCValueChallenge(DynamicValueChallenge):
                         try:
                             delete_instance(challenge.id, sourceId)
                             msg = "Correct, your instance has been destroyed"
-                        except Exception as e:
+                        except Exception:
                             logger.warning(f"Failed to delete challenge {challenge.id} for source {sourceId}, instance may not exist")
-                            
-
-
                     return True, msg
                 
             logger.info(f"invalid submission for CM flag: challenge {challenge.id} source {sourceId}")
