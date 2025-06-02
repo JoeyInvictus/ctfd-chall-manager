@@ -69,11 +69,11 @@
                     <td class="text-center">
                         {% if user_mode == "teams" %}
                         <a href="{{ url_for('admin.teams_detail', team_id=instance.user_id) }}">
-                            {{ instance.email }}
+                            {{ instance.email.split('@')[0] }}
                         </a>
                         {% else %}
                         <a href="{{ url_for('admin.users_detail', user_id=instance.user_id) }}">
-                            {{ instance.email }}
+                            {{ instance.email.split('@')[0] }}
                         </a>
                         {% endif %}
                     </td>

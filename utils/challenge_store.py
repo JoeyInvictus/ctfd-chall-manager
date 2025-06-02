@@ -67,7 +67,7 @@ def create_challenge(id: int, scenario: str, *args) -> requests.Response:
     else:
         if r.status_code != 201:
             logger.error(f"Error from chall-manager: {json.loads(r.text)}")
-            raise Exception(f"Chall-manager returned an error: {json.loads(r.text)}")
+            raise Exception(f"Chall-manager returned an error: {json.loads(r.text)['message']}")
     
     return r
 
@@ -119,7 +119,7 @@ def get_challenge(id: int) -> requests.Response:
             raise Exception(f"Chall-manager could not find a challenge for this id")
         elif r.status_code != 200:
             logger.error(f"Error from chall-manager: {json.loads(r.text)}")
-            raise Exception(f"Chall-manager returned an error: {json.loads(r.text)}")
+            raise Exception(f"Chall-manager returned an error: {json.loads(r.text)['message']}")
  
     return r
 
@@ -164,5 +164,5 @@ def update_challenge(id: int, *args) -> requests.Response:
     else:
         if r.status_code != 204:
             logger.error(f"Error from chall-manager: {json.loads(r.text)}")
-            raise Exception(f"Chall-manager returned an error: {json.loads(r.text)}")
+            raise Exception(f"Chall-manager returned an error: {json.loads(r.text)['message']}")
     return r

@@ -141,9 +141,12 @@ class DynamicIaCValueChallenge(DynamicValueChallenge):
                 raise ChallengeCreateException(f"Invalid JSON in 'additional': {e}")
             
             if isinstance(additional, dict):
-                if isinstance(additional["subscription_required"], dict):
-                    logger.info("Subscription attribute is set. Parsing it")
-                    data["subscription_required"] = additional["subscription_required"]
+                try:
+                    if isinstance(additional["subscription_required"], dict):
+                        logger.info("Subscription attribute is set. Parsing it")
+                        data["subscription_required"] = additional["subscription_required"]
+                except KeyError:
+                    pass
 
             elif not isinstance(additional, dict):
                 raise ChallengeCreateException(f"An exception occurred while decoding additional configuration, found {data['additional']}")

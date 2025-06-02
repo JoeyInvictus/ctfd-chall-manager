@@ -70,7 +70,7 @@ def delete_instance(challengeId: int , userId: int) -> requests.Response | Excep
     else:
         if r.status_code != 200:
             logger.error(f"Error from chall-manager: {json.loads(r.text)}")
-            raise Exception(f"Chall-manager returned an error: {json.loads(r.text)}")
+            raise Exception(f"Chall-manager returned an error: {json.loads(r.text)['message']}")
  
     return r
 
@@ -102,7 +102,7 @@ def get_instance(challengeId: int, userId: int) -> requests.Response | Exception
             pass
         elif r.status_code != 200:
             logger.info(f"No instance on chall-manager: {json.loads(r.text)}")
-            raise Exception(f"Chall-manager returned an error: {json.loads(r.text)}")
+            raise Exception(f"Chall-manager returned an error: {json.loads(r.text)['message']}")
 
     return r
 
