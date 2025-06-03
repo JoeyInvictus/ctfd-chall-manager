@@ -35,7 +35,7 @@
                         <input type="checkbox" class="form-check-input" data-checkbox-all>
                     </div>
                 </th>
-                <th class="sort-col text-center"><b>Challenge</b></td>
+                <th class="sort-col text-center"><b>Lab name</b></td>
                 <th class="sort-col text-center"><b>User</b></td>
                 <th class="text-center"><b>Connection Info</b></td>
                 <th class="text-center"><b>Running</b></td>
@@ -61,7 +61,7 @@
                     <td class="text-center">
                         <div class="form-check" id="challenge-id-div">
                             <a href="{{ url_for('admin.challenges_detail', challenge_id=instance.challenge_id) }}">
-                                {{ instance.challengeName }}
+                                {{ instance.lab_name }}
                             </a>
                         </div>
                       

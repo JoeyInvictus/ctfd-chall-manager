@@ -13,6 +13,7 @@ from CTFd.plugins.challenges import CHALLENGE_CLASSES  # type: ignore
 from .api import user_namespace, admin_namespace
 from .utils.setup import setup_default_configs
 from .utils.challenge_store import query_challenges
+from .utils.instance_manager import get_version
 from .models import DynamicIaCValueChallenge, DynamicIaCChallenge
 
 from .utils.mana_coupon import get_all_mana
@@ -73,12 +74,15 @@ def load(app):
         except Exception as e:
             logger.warning(f"cannot communicate with CM provided got {e}")
             cm_api_reachable = False
+            tofu_version = {}
         else: 
             logger.info("communication with CM configured successfully")
             cm_api_reachable = True
+            tofu_version = get_version().json()
         
         return render_template("chall_manager_config.html",
-                               cm_api_reachable=cm_api_reachable)
+                               cm_api_reachable=cm_api_reachable,
+                               tofu_version=tofu_version)
 
     # Route to monitor & manage running instances
     @page_blueprint.route('/admin/instances')
@@ -97,12 +101,18 @@ def load(app):
 
         for challenge in result:
             for instance in challenge["instances"]:
-                instances.append(instance)
+                if instance["running"] is True:
+                    instances.append(instance)
 
         user_mode = get_config("user_mode")
-        for i in instances:
-            challenge_name = get_all_challenges(admin=True, id=i["challenge_id"])[0].name
-            i["challengeName"] = challenge_name
+        for x, i in enumerate(instances):
+            try:
+                challenge = get_all_challenges(admin=True, id=i["challenge_id"])[0]
+                i["challenge_name"] = challenge.name
+                i["lab_name"] = challenge.category
+            except IndexError:
+                instances.pop(x)
+
             logger.debug(f"Instance: {i}")
 
         print(instances)

@@ -7,6 +7,36 @@ from .chall_manager_error import ChallManagerException
 
 logger = configure_logger(__name__)
 
+
+def get_version() -> requests.Response | Exception:
+    """
+    Gets the Tofu version from the API 
+    """
+
+    cm_api_url = get_config("chall-manager:chall-manager_api_url")
+    url = f"{cm_api_url}/version"
+
+    headers = {
+        "Content-Type": "application/json"
+    }
+
+    logger.debug("Requesting Tofu version")
+
+    try:        
+        r = requests.get(url, headers=headers)
+        logger.debug(f"Received response: {r.status_code} {r.text}")
+    except Exception as e:
+        logger.error(f"Error getting version: {e}")
+        raise Exception(f"An exception occurred while communicating with CM: {e}")
+    else:
+        # attempt to handle the error and communicate to the end user what is going wrong
+        if r.status_code != 200:
+            message = r.json()["message"]
+            logger.error(f"{message}")
+            raise ChallManagerException(message=message)
+    return r
+
+
 def create_instance(challengeId: int, userId: int, userEmail: str) -> requests.Response | Exception: 
     """
     Spins up a challenge instance, iif the challenge is registered and no instance is yet running.
