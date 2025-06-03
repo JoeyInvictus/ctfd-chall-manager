@@ -299,23 +299,25 @@ class DynamicIaCValueChallenge(DynamicValueChallenge):
                 elif isinstance(data["additional"], dict):
                     additional = data["additional"]
             except json.JSONDecodeError as e:
+                additional = ""
                 raise ChallengeCreateException(f"Invalid JSON in 'additional': {e}")
             
+            if "subscription_required" in additional:
             # check if it is a dict object
-            if isinstance(additional, dict):
-                try:
-                    # attempt to set it as an attribute and update it by calling calculate_value to save it
-                    logger.info("Subscription attribute is set. Parsing it")
-                    optional['subscription_required'] = additional['subscription_required']
-                    setattr(challenge, "subscription_required", additional['subscription_required'])
-                    return super().calculate_value(challenge)
-                
-                except KeyError:
-                    logger.error(f"An exception occurred while decoding additional configuration, found {additional} : {e}")
-                    raise ChallengeCreateException(f"An exception occurred while decoding additional configuration, found {additional} : {e}")
+                if isinstance(additional, dict):
+                    try:
+                        # attempt to set it as an attribute and update it by calling calculate_value to save it
+                        logger.info("Subscription attribute is set. Parsing it")
+                        optional['subscription_required'] = additional['subscription_required']
+                        setattr(challenge, "subscription_required", additional['subscription_required'])
+                        return super().calculate_value(challenge)
+                    
+                    except KeyError as e:
+                        logger.error(f"An exception occurred while decoding additional configuration, found {additional} : {e}")
+                        raise ChallengeCreateException(f"An exception occurred while decoding additional configuration, found {additional} : {e}")
 
-            elif not isinstance(additional, dict):
-                raise ChallengeCreateException(f"An exception occurred while decoding additional configuration, found {additional}")
+                elif not isinstance(additional, dict):
+                    raise ChallengeCreateException(f"An exception occurred while decoding additional configuration, found {additional}")
         else:
             logger.info("Additional attribute not set")
 
