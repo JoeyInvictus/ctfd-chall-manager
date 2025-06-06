@@ -147,13 +147,11 @@ def update_challenge(id: int, *args) -> requests.Response:
 
         payload = args[0]
 
-
     logger.debug(f"Updating challenge with id={id}")
     
     # attempt to set default payload if not provided
     if "timeout" not in payload:
         payload['timeout'] = 3600
-
 
     try:
         r = requests.put(url, data=json.dumps(payload), headers=headers)

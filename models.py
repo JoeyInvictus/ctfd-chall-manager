@@ -229,10 +229,9 @@ class DynamicIaCValueChallenge(DynamicValueChallenge):
                 "shared": challenge.shared,
                 "destroy_on_flag": challenge.destroy_on_flag,
                 "scenario_id": challenge.scenario_id,
-                "additional": challenge.additional if current_user.is_admin() else {}, # do not display additional for all user, can contains secrets
+                "additional": challenge.additional if challenge.additional is not None and current_user.is_admin() else {}, # do not display additional for all user, can contains secrets
                 "min": challenge.min,
-                "max": challenge.max,
-                #"subscription_required": json.loads(challenge.additional)['subscription_required'] if "subscription_required" in challenge.additional else challenge.subscription_required
+                "max": challenge.max
             }
         )
         return data
@@ -248,6 +247,8 @@ class DynamicIaCValueChallenge(DynamicValueChallenge):
         :return:
         """
         data = request.form or request.get_json()
+
+        logger.info("starting update")
 
         if "shared" in data.keys():
             data["shared"] = convert_to_boolean(data["shared"])
@@ -287,39 +288,6 @@ class DynamicIaCValueChallenge(DynamicValueChallenge):
         if "timeout" not in data.keys():
             optional["timeout"] = None
             setattr(challenge, "timeout", "")
-
-        # convert string into dict in CTFd  
-        # in this additional block we care about the subscription_required
-        if "additional" in data.keys():
-            # check if it is decodable and exists
-            try:
-                logger.info("additional data found during update")
-                if isinstance(data["additional"], str):
-                    additional = json.loads(data["additional"])
-                elif isinstance(data["additional"], dict):
-                    additional = data["additional"]
-            except json.JSONDecodeError as e:
-                additional = ""
-                raise ChallengeCreateException(f"Invalid JSON in 'additional': {e}")
-            
-            if "subscription_required" in additional:
-            # check if it is a dict object
-                if isinstance(additional, dict):
-                    try:
-                        # attempt to set it as an attribute and update it by calling calculate_value to save it
-                        logger.info("Subscription attribute is set. Parsing it")
-                        optional['subscription_required'] = additional['subscription_required']
-                        setattr(challenge, "subscription_required", additional['subscription_required'])
-                        return super().calculate_value(challenge)
-                    
-                    except KeyError as e:
-                        logger.error(f"An exception occurred while decoding additional configuration, found {additional} : {e}")
-                        raise ChallengeCreateException(f"An exception occurred while decoding additional configuration, found {additional} : {e}")
-
-                elif not isinstance(additional, dict):
-                    raise ChallengeCreateException(f"An exception occurred while decoding additional configuration, found {additional}")
-        else:
-            logger.info("Additional attribute not set")
 
         # don't touch this
         for attr, value in data.items():
@@ -363,6 +331,37 @@ class DynamicIaCValueChallenge(DynamicValueChallenge):
         if "max" in data.keys():
             optional["max"] = data["max"]
 
+
+        if "additional" in data.keys():
+            try:
+                logger.info("additional data found during update")
+                if isinstance(data["additional"], str):
+                    additional = json.loads(data["additional"])
+                elif isinstance(data["additional"], dict):
+                    additional = data["additional"]
+            except json.JSONDecodeError as e:
+                additional = {}
+
+            # check if it is a dict object
+            if isinstance(additional, dict):
+                try:
+                    if "subscription_required" in additional:
+                        # attempt to set it as an attribute and update it by calling calculate_value to save it
+                        logger.info("Subscription attribute is set. Parsing it")
+                        optional['subscription_required'] = additional['subscription_required']
+                        setattr(challenge, "subscription_required", additional['subscription_required'])
+                    else:
+                        setattr(challenge, "additional", additional)
+                    
+                except KeyError as e:
+                    logger.error(f"An exception occurred while decoding additional configuration, found {additional} : {e}")
+                    raise ChallengeCreateException(f"An exception occurred while decoding additional configuration, found {additional} : {e}")
+
+            elif not isinstance(additional, dict):
+                raise ChallengeCreateException(f"An exception occurred while decoding additional configuration, found {additional}")
+        else:
+            logger.info("Additional attribute not set")
+
         # send updates to CM
         try:
             update_challenge(challenge.id, optional)
@@ -370,6 +369,7 @@ class DynamicIaCValueChallenge(DynamicValueChallenge):
             logger.error(f"{e}")
             raise ChallengeUpdateException(f"Error while patching the challenge: {e}")
 
+        logger.info("updating whole challenge")
         return super().calculate_value(challenge)
 
 
