@@ -51,8 +51,6 @@ def create_challenge(id: int, scenario: str, *args) -> requests.Response:
             raise Exception(f"invalid argument, got {args[0]} for type {type(args[0])}, dict is expected")
 
         payload = args[0]
-    
-    print(f"args are: {args}")
 
     logger.debug(f"Creating challenge with id={id}")
 
