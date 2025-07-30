@@ -39,10 +39,10 @@ function formatCountDown(countdown) {
     return formattedCountdown;
 }
 
+
 function loadInfo() {
     var challenge_id = CTFd._internal.challenge.data.id;
-    var url = "/api/v1/plugins/ctfd-chall-manager/instance?challengeId=" + challenge_id;
-
+    var url = "/api/v1/plugins/ctfd-chall-manager/instance?challengeId=" + challenge_id;   
 
     CTFd.fetch(url, {
         method: 'GET',
@@ -72,6 +72,7 @@ function loadInfo() {
             title: "Fail",
             html: response.data.message,
         });
+
         $('#cm-panel-loading').hide();
         $('#cm-panel-until').hide(); 
        
@@ -80,6 +81,9 @@ function loadInfo() {
             // check instance is not expired
             var now = new Date();
             var until = new Date(response.until);
+
+            console.log("=== DEBUG: Current time:", now);
+            console.log("=== DEBUG: Until time:", until);
             
             console.log(now);
             console.log(until);

@@ -15,9 +15,14 @@ from .utils.logger import configure_logger
 from .utils.chall_manager_error import ChallManagerException
 from .decorators import challenge_visible
 
-
-# Configure logger for this module
+import traceback
+import logging
 logger = configure_logger(__name__)
+logger.setLevel(logging.DEBUG)
+
+handler = logging.StreamHandler()
+handler.setLevel(logging.DEBUG)
+logger.addHandler(handler)
 
 admin_namespace = Namespace("ctfd-chall-manager-admin")
 user_namespace = Namespace("ctfd-chall-manager-user")
@@ -48,7 +53,7 @@ class AdminInstance(Resource):
         logger.info(f"Admin {adminId} get instance info for challengeId: {challengeId}, sourceId: {sourceId}")
 
         try:
-            logger.debug(f"Getting instance for challengeId: {challengeId}, sourceId: {sourceId}")
+            logger.info(f"Getting instance for challengeId: {challengeId}, sourceId: {sourceId}")
             r = get_instance(challengeId, sourceId)
             logger.info(f"Instance retrieved successfully. {json.loads(r.text)}")
         except Exception as e:
@@ -72,7 +77,7 @@ class AdminInstance(Resource):
 
 
         try:
-            logger.debug(f"Creating instance for challengeId: {challengeId}, sourceId: {sourceId}")
+            logger.info(f"Creating instance for challengeId: {challengeId}, sourceId: {sourceId}")
             r = create_instance(challengeId, sourceId)
             logger.info(f"Instance for challengeId: {challengeId}, sourceId: {sourceId} created successfully.")
 
@@ -106,7 +111,7 @@ class AdminInstance(Resource):
         logger.info(f"Admin {adminId} request instance update for challengeId: {challengeId}, sourceId: {sourceId}")
 
         try:
-            logger.debug(f"Updating instance for challengeId: {challengeId}, sourceId: {sourceId}")
+            logger.info(f"Updating instance for challengeId: {challengeId}, sourceId: {sourceId}")
             r = update_instance(challengeId, sourceId)
             logger.info(f"Instance for challengeId: {challengeId}, sourceId: {sourceId} updated successfully.")
         except Exception as e:
@@ -129,7 +134,7 @@ class AdminInstance(Resource):
         logger.info(f"Admin {adminId} request instance delete for challengeId: {challengeId}, sourceId: {sourceId}")
 
         try:
-            logger.debug(f"Deleting instance for challengeId: {challengeId}, sourceId: {sourceId}")
+            logger.info(f"Deleting instance for challengeId: {challengeId}, sourceId: {sourceId}")
             r = delete_instance(challengeId, sourceId)
             logger.info(f"Instance for challengeId: {challengeId}, sourceId: {sourceId} delete successfully.")
 
@@ -142,6 +147,7 @@ class AdminInstance(Resource):
         return {'success': True, 'data': json.loads(r.text)}
 
 
+from dateutil.parser import isoparse
 # region UserInstance
 # Resource to permit user to manage their instance
 @user_namespace.route("/instance")
@@ -150,62 +156,94 @@ class UserInstance(Resource):
     @authed_only
     @challenge_visible
     def get():
-        # mandatory     
         challengeId = request.args.get("challengeId")
-
-        # check userMode of CTFd
         sourceId = str(current_user.get_current_user().id)
         logger.info(f"user {sourceId} request GET on challenge {challengeId}")
 
         if get_config("user_mode") == "teams":
-            sourceId = str(current_user.get_current_user().team_id)       
+            sourceId = str(current_user.get_current_user().team_id)
 
         if not challengeId or not sourceId:
             logger.warning("Missing argument: challengeId or sourceId")
             return {'success': False, 'data': {
-                'message': "Missing argument : challengeId or sourceId",
+                'message': "Missing argument: challengeId or sourceId"
             }}
 
-        # if challenge is shared
         challenge = DynamicIaCChallenge.query.filter_by(id=challengeId).first()
         if challenge.shared:
             sourceId = 0
 
+        # Initialize debug info for API response
+        debug_info = []
+        
         try:
-            logger.debug(f"Getting instance for challengeId: {challengeId}, sourceId: {sourceId}")
             r = get_instance(challengeId, sourceId)
-            logger.info(f"Instance retrieved successfully. {json.loads(r.text)}")
+            result = json.loads(r.text)
+            debug_info.append(f"Raw result from challenge manager: {result}")
         except Exception as e:
-            logger.error(f"Error while getting instance: {e}")
+            debug_info.append(f"Error getting instance: {e}")
             return {'success': False, 'data': {
-                'message': f"Error while communicating with CM : {e}",
+                'message': f"Error while communicating with CM: {e}",
+                'debug': debug_info
             }}
 
-        # return only necessary values
         data = {}
-        result = json.loads(r.text)
         try:
-            if 'connectionInfo' in result['data'].keys():
-                data['connectionInfo'] = result['data']['connectionInfo']
+            if result.get('status') == 'success' and 'data' in result and result['data']:
+                debug_info.append(f"Challenge manager returned success with data")
+                instance_data = result['data']
+                debug_info.append(f"Instance data: {instance_data}")
 
-            # we moved this functionality to the front-end
-            # establish the right ISO format
-            # we assume the default for a lab is 3600
-            if 'created_at' in result['data'].keys():
-                created_at = datetime.fromisoformat(result['data']['created_at'])
-                extra_time = int(result['data']['extra_time'] + 3600) #default 1 hour
-                data['until'] = (created_at + timedelta(seconds=extra_time)).isoformat()
-                data['since'] = created_at.isoformat()
+                if 'connectionInfo' in instance_data:
+                    data['connectionInfo'] = instance_data['connectionInfo']
+                    debug_info.append(f"Added connectionInfo: {data['connectionInfo']}")
 
-            if result['data']['connectionInfo'] is None:
-                data['starting'] = "starting challenge..."
+                if 'created_at' in instance_data:
+                    debug_info.append(f"Found created_at: {instance_data['created_at']}")
+                    try:
+                        created_at = isoparse(instance_data['created_at'])
+                        debug_info.append(f"Parsed created_at: {created_at}")
+                        data['since'] = created_at.isoformat()
+                        debug_info.append(f"Set since: {data['since']}")
 
+                        challenge_timeout = 3600
+                        if hasattr(challenge, 'alive') and challenge.alive:
+                            challenge_timeout = challenge.alive
+                            debug_info.append(f"Using challenge.alive: {challenge_timeout}")
+                        elif hasattr(challenge, 'timeout') and challenge.timeout:
+                            challenge_timeout = challenge.timeout
+                            debug_info.append(f"Using challenge.timeout: {challenge_timeout}")
+                        else:
+                            debug_info.append(f"Using default timeout: {challenge_timeout}")
+
+                        extra_time = int(instance_data.get('extra_time', 0))
+                        debug_info.append(f"Extra time from instance: {extra_time}")
+
+                        total_time = challenge_timeout + extra_time
+                        debug_info.append(f"Total time: {total_time} seconds")
+
+                        until_time = created_at + timedelta(seconds=total_time)
+                        data['until'] = until_time.isoformat()
+                        debug_info.append(f"Set until: {data['until']}")
+                    except Exception as e:
+                        debug_info.append(f"Error parsing created_at: {e}")
+                        debug_info.append(f"Full traceback: {traceback.format_exc()}")
+                        data['since'] = None
+                        data['until'] = None
+
+                if instance_data.get('connectionInfo') is None:
+                    data['starting'] = "starting challenge..."
+                    debug_info.append(f"No connectionInfo, set starting message")
+            else:
+                debug_info.append(f"Challenge manager returned error or no data: {result}")
+                data = {}
         except Exception as e:
-            logger.error(f"Error while returning connection info for challenge : {e}")
-            data = []
+            debug_info.append(f"Error processing connection info: {e}")
+            debug_info.append(f"Full traceback: {traceback.format_exc()}")
+            data.setdefault('connectionInfo', None)
 
-        print(data)
-        return {'success': True, 'data': data}
+        debug_info.append(f"Final data being returned: {data}")
+        return {'success': True, 'data': data, 'debug': debug_info}
 
     @staticmethod
     @authed_only
@@ -232,7 +270,7 @@ class UserInstance(Resource):
         # check if sourceId can launch the instance
 
         try:
-            logger.debug(f"Creating instance for challengeId: {challengeId}, sourceId: {sourceId}")
+            logger.info(f"Creating instance for challengeId: {challengeId}, sourceId: {sourceId}")
             r = create_instance(challengeId, sourceId, userEmail)
             logger.info(f"Instance for challengeId: {challengeId}, sourceId: {sourceId} created successfully")
 
@@ -256,14 +294,30 @@ class UserInstance(Resource):
         data = {}
         result = json.loads(r.text)
 
-        if 'connectionInfo' in result.keys():
-            data['connectionInfo'] = result['connectionInfo']
-
-        if 'until' in result.keys():
-            data['until'] = result['until']
-
-        if 'since' in result.keys():
-            data['since'] = result['since']
+        try:
+            if 'connectionInfo' in result['data'].keys():
+                data['connectionInfo'] = result['data']['connectionInfo']
+            
+            # Calculate since and until from created_at
+            if 'created_at' in result['data'].keys():
+                from datetime import datetime, timedelta
+                created_at = isoparse(result['data']['created_at'])
+                data['since'] = created_at.isoformat()
+                
+                # Get challenge timeout (default 1 hour)
+                challenge_timeout = 3600
+                if hasattr(challenge, 'alive') and challenge.alive:
+                    challenge_timeout = challenge.alive
+                
+                extra_time = int(result['data'].get('extra_time', 0))
+                total_time = challenge_timeout + extra_time
+                until_time = created_at + timedelta(seconds=total_time)
+                data['until'] = until_time.isoformat()
+            
+            if result['data']['connectionInfo'] == None:
+                data['starting'] = "starting challenge..."
+        except Exception:
+            data = {}
 
         return {'success': True, 'data': data}
 
@@ -295,11 +349,11 @@ class UserInstance(Resource):
             }}
 
         try:
-            logger.debug(f"Updating instance for challengeId: {challengeId}, sourceId: {sourceId}")
+            logger.info(f"Updating instance for challengeId: {challengeId}, sourceId: {sourceId}")
             r = update_instance(challengeId, sourceId)
             logger.info(f"Instance for challengeId: {challengeId}, sourceId: {sourceId} updated successfully.")
         except ChallManagerException as e:
-            return {'success': False, 'data': {
+            return {'success': False, 'data': {\
                 'message': f"{e.message}",
             }}
 
@@ -344,7 +398,7 @@ class UserInstance(Resource):
 
         try:
 
-            logger.debug(f"Deleting instance for challengeId: {challengeId}, sourceId: {sourceId}")
+            logger.info(f"Deleting instance for challengeId: {challengeId}, sourceId: {sourceId}")
             r = delete_instance(challengeId, sourceId)
             logger.info(f"Instance for challengeId: {challengeId}, sourceId: {sourceId} deleted successfully.")
         except Exception as e:
