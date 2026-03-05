@@ -34,10 +34,10 @@ def create_instance(
     """
 
     cm_api_url = get_config("chall-manager:chall-manager_api_url")
-    url = f"{cm_api_url}/api/v1/instance"
+    url = f"{cm_api_url}/instances/{challenge_id}"
     cache_key = f"instance:{challenge_id}:{source_id}"
 
-    payload = {"challengeId": str(challenge_id), "sourceId": str(source_id)}
+    payload = {"user_id": source_id}
     
     # Custom Invictus feature: include user email if provided
     if user_email:
@@ -85,7 +85,7 @@ def delete_instance(challenge_id: int, source_id: int) -> dict | ChallManagerExc
     """
 
     cm_api_url = get_config("chall-manager:chall-manager_api_url")
-    url = f"{cm_api_url}/api/v1/instance/{challenge_id}/{source_id}"
+    url = f"{cm_api_url}/instances/{challenge_id}/{source_id}"
     cache_key = f"instance:{challenge_id}:{source_id}"
 
     logger.debug(
@@ -127,7 +127,7 @@ def get_instance(challenge_id: int, source_id: int) -> dict | ChallManagerExcept
     """
 
     cm_api_url = get_config("chall-manager:chall-manager_api_url")
-    url = f"{cm_api_url}/api/v1/instance/{challenge_id}/{source_id}"
+    url = f"{cm_api_url}/instances/{challenge_id}/{source_id}"
     cache_key = f"instance:{challenge_id}:{source_id}"
 
     cached = cache.get(cache_key)
@@ -176,7 +176,7 @@ def update_instance(challenge_id: int, source_id: int) -> dict | ChallManagerExc
     """
 
     cm_api_url = get_config("chall-manager:chall-manager_api_url")
-    url = f"{cm_api_url}/api/v1/instance/{challenge_id}/{source_id}"
+    url = f"{cm_api_url}/instances/{challenge_id}/{source_id}"
     cache_key = f"instance:{challenge_id}:{source_id}"
 
     payload = {
@@ -222,7 +222,7 @@ def query_instance(source_id: int) -> list | ChallManagerException:
     """
 
     cm_api_url = get_config("chall-manager:chall-manager_api_url")
-    url = f"{cm_api_url}/api/v1/instance?sourceId={source_id}"
+    url = f"{cm_api_url}/instances?sourceId={source_id}"
     s = requests.Session()
 
     result = []
