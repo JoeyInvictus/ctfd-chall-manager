@@ -6,13 +6,15 @@ The DynamicIaC type of challenge inherits from CTFd built-in Dynamic challenges
 """
 
 import json
+import os
+import base64
 
 # CTFd imports
 from CTFd.exceptions.challenges import (
     ChallengeCreateException,
     ChallengeUpdateException,
 )
-from CTFd.models import Flags, db
+from CTFd.models import Flags, Files, db
 from CTFd.plugins.challenges import ChallengeResponse
 from CTFd.plugins.challenges.logic import (
     challenge_attempt_all,
@@ -36,7 +38,7 @@ from .utils.logger import configure_logger
 from CTFd.plugins.dynamic_challenges import DynamicChallenge, DynamicValueChallenge
 from CTFd.utils import user as current_user
 from CTFd.utils.config import is_teams_mode
-from flask import Blueprint
+from flask import Blueprint, current_app
 
 logger = configure_logger(__name__)
 
@@ -205,13 +207,29 @@ class DynamicIaCValueChallenge(DynamicValueChallenge):
 
         logger.info("challenge %s created successfully on CTFd", challenge.id)
 
+        # Retrieve file based on scenario id and encode it for terraform-challenge-manager
+        scenario_file = Files.query.filter_by(id=int(challenge.scenario)).first()
+        if not scenario_file:
+            logger.error("scenario file not found for id=%s", challenge.scenario)
+            cls.delete(challenge)
+            raise ChallengeCreateException("scenario file not found")
+        
+        # Read and base64 encode the file content
+        full_scenario_location = os.path.join(
+            current_app.config.get("UPLOAD_FOLDER"), scenario_file.location
+        )
+        try:
+            with open(full_scenario_location, "rb") as f:
+                encoded_string = base64.b64encode(f.read())
+                zip64_content = encoded_string.decode("utf-8")
+        except Exception as e:
+            logger.error("error reading scenario file %s: %s", challenge.scenario, e)
+            cls.delete(challenge)
+            raise ChallengeCreateException(f"error reading scenario file: {e}") from e
+
         # check params configuration for dynamic_iac
-        # init params configuration
-        # Note: scenario contains the file ID (from old scenario_id), not the content
-        # The challenge manager expects the scenario field, so we just pass it as-is
-        # The CM will handle fetching the file by ID
         params = {
-            "scenario": challenge.scenario,
+            "zip64": zip64_content,
         }
 
         for key in list(data.keys()):  # use list(data.keys()) to prevent RuntimeError
@@ -219,7 +237,6 @@ class DynamicIaCValueChallenge(DynamicValueChallenge):
                 "additional",
                 "until",
                 "timeout",
-                "scenario",
                 "min",
                 "max",
             ]:
