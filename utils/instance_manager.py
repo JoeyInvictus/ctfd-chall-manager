@@ -153,8 +153,14 @@ def get_instance(challenge_id: int, source_id: int) -> dict | ChallManagerExcept
             message="an exception occurred while communicating with CM"
         ) from e
 
+    if r.status_code == 404:
+        # 404 is normal - means no instance exists yet
+        logger.info("no instance found for challenge_id=%s, source_id=%s", challenge_id, source_id)
+        return {}  # Return empty dict, not an error
+    
     if r.status_code != 200:
-        logger.info("no instance on chall-manager: %s", json.loads(r.text))
+        # Other errors are real problems
+        logger.error("error from chall-manager: %s", json.loads(r.text))
         raise ChallManagerException(
             message=f"Chall-Manager returned an error: {json.loads(r.text)}"
         )
