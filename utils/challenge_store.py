@@ -71,13 +71,11 @@ def create_challenge(
     :return Response: of chall-manager API
     """
     cm_api_url = _get_cm_base_url()
-    url = f"{cm_api_url}/api/v1/challenges"
+    url = f"{cm_api_url}/api/v1/challenges/{challenge_id}"
     headers = {"Content-Type": "application/json"}
     payload = kwargs
 
     logger.debug("creating challenge with id=%s", challenge_id)
-
-    payload["id"] = str(challenge_id)
 
     try:
         r = requests.post(
@@ -90,7 +88,7 @@ def create_challenge(
             message="an exception occurred while communicating with CM"
         ) from e
 
-    if r.status_code != 200:
+    if r.status_code != 201:
         logger.error("error from chall-manager: %s", json.loads(r.text))
         raise ChallManagerException(
             message=f"Chall-manager returned an error: {json.loads(r.text)}"
@@ -189,7 +187,7 @@ def update_challenge(
     )
 
     try:
-        r = requests.patch(
+        r = requests.put(
             url, data=json.dumps(payload), headers=headers, timeout=CM_API_TIMEOUT
         )
         logger.debug("received response: %s %s", r.status_code, r.text)
@@ -197,7 +195,7 @@ def update_challenge(
         logger.error("error updating challenge: %s", e)
         raise ChallManagerException(message="error while communicating with CM") from e
 
-    if r.status_code != 200:
+    if r.status_code != 204:
         logger.error("error from chall-manager: %s", json.loads(r.text))
         raise ChallManagerException(
             message=f"Chall-manager returned an error: {json.loads(r.text)}"
