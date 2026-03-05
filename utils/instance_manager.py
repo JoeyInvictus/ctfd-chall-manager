@@ -61,16 +61,19 @@ def create_instance(
         ) from e
 
     if r.status_code != 200:
-        if r.json()["code"] == 2:
-            message = r.json()["message"]
-            logger.error("chall-manager return an error: %s", message)
-            raise ChallManagerException(message=message)
+        # terraform-challenge-manager returns 'status' and 'message', not 'code'
+        error_data = r.json()
+        message = error_data.get("message", "Unknown error")
+        logger.error("chall-manager returned an error: %s", message)
+        raise ChallManagerException(message=message)
 
     # store the informations on cache
     result = r.json()
-    cache.set(cache_key, result, timeout=60)
+    # terraform-challenge-manager wraps response in 'data' field
+    instance_data = result.get("data", result)
+    cache.set(cache_key, instance_data, timeout=60)
 
-    return result
+    return instance_data
 
 
 def delete_instance(challenge_id: int, source_id: int) -> dict | ChallManagerException:
@@ -157,10 +160,13 @@ def get_instance(challenge_id: int, source_id: int) -> dict | ChallManagerExcept
         )
 
     result = r.json()
-    if result["since"] is not None:
+    # terraform-challenge-manager wraps response in 'data' field
+    if "data" in result and result["data"]:
+        instance_data = result["data"]
         # store in cache only if the instance exists
         logger.debug("store result in cache for better performances")
-        cache.set(cache_key, result, timeout=60)
+        cache.set(cache_key, instance_data, timeout=60)
+        return instance_data
 
     return result
 
