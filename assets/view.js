@@ -9,9 +9,130 @@ CTFd._internal.challenge.render = null;
 
 CTFd._internal.challenge.postRender = function () {
     loadInfo();
+    // Show floating panel
+    showFloatingPanel();
 }
 
 if (window.$ === undefined) window.$ = CTFd.lib.$;
+
+// Track warning states to avoid duplicate notifications
+window.cm_warning_shown = {
+    fifteen: false,
+    ten: false,
+    five: false
+};
+
+// Show the floating panel
+function showFloatingPanel() {
+    const panel = document.getElementById('cm-floating-panel');
+    if (panel) {
+        panel.style.display = 'block';
+    }
+}
+
+// Update floating panel state
+function updateFloatingPanel(state, data = {}) {
+    // Hide all states
+    $('#cm-float-loading').hide();
+    $('#cm-float-stopped').hide();
+    $('#cm-float-starting').hide();
+    $('#cm-float-running').hide();
+    
+    // Show requested state
+    switch(state) {
+        case 'loading':
+            $('#cm-float-loading').show();
+            break;
+        case 'stopped':
+            $('#cm-float-stopped').show();
+            break;
+        case 'starting':
+            $('#cm-float-starting').show();
+            break;
+        case 'running':
+            $('#cm-float-running').show();
+            if (data.countdown) {
+                $('#cm-float-countdown').text(data.countdown);
+            }
+            if (data.connectionInfo) {
+                $('#cm-float-connection').text(data.connectionInfo);
+            }
+            // Handle expiration warning
+            if (data.showWarning && data.warningMessage) {
+                $('#cm-float-warning-message').text(data.warningMessage);
+                $('#cm-float-expiration-warning').show();
+            } else {
+                $('#cm-float-expiration-warning').hide();
+            }
+            break;
+    }
+}
+
+// Check and show expiration warnings
+function checkExpirationWarnings(count_down_ms) {
+    const minutes = Math.floor(count_down_ms / (1000 * 60));
+    const FIFTEEN_MIN = 15 * 60 * 1000;
+    const TEN_MIN = 10 * 60 * 1000;
+    const FIVE_MIN = 5 * 60 * 1000;
+    
+    let showWarning = false;
+    let warningMessage = '';
+    
+    // 15 minute warning
+    if (count_down_ms <= FIFTEEN_MIN && count_down_ms > TEN_MIN && !window.cm_warning_shown.fifteen) {
+        window.cm_warning_shown.fifteen = true;
+        warningMessage = 'Your instance will expire in 15 minutes! Click Renew to add more time.';
+        showWarning = true;
+        CTFd._functions.events.eventAlert({
+            title: "Instance Expiring Soon",
+            html: warningMessage,
+            icon: "warning"
+        });
+    }
+    // 10 minute warning
+    else if (count_down_ms <= TEN_MIN && count_down_ms > FIVE_MIN && !window.cm_warning_shown.ten) {
+        window.cm_warning_shown.ten = true;
+        warningMessage = 'Your instance will expire in 10 minutes! Click Renew to add more time.';
+        showWarning = true;
+        CTFd._functions.events.eventAlert({
+            title: "Instance Expiring Soon",
+            html: warningMessage,
+            icon: "warning"
+        });
+    }
+    // 5 minute warning
+    else if (count_down_ms <= FIVE_MIN && count_down_ms > 0 && !window.cm_warning_shown.five) {
+        window.cm_warning_shown.five = true;
+        warningMessage = 'Your instance will expire in 5 minutes! Click Renew NOW to add more time.';
+        showWarning = true;
+        CTFd._functions.events.eventAlert({
+            title: "Instance Expiring VERY Soon!",
+            html: warningMessage,
+            icon: "error"
+        });
+    }
+    
+    // Show persistent warning in panel when under 15 minutes
+    if (count_down_ms <= FIFTEEN_MIN && count_down_ms > 0) {
+        warningMessage = `Your instance expires in ${minutes} minute${minutes !== 1 ? 's' : ''}!`;
+        showWarning = true;
+    }
+    
+    // Update both inline and floating panels
+    if (showWarning) {
+        $('#cm-warning-message').text(warningMessage);
+        $('#cm-expiration-warning').show();
+        $('#cm-float-warning-message').text(warningMessage);
+        updateFloatingPanel('running', {
+            showWarning: true,
+            warningMessage: warningMessage,
+            countdown: formatCountDown(count_down_ms),
+            connectionInfo: $('#whale-challenge-lan-domain').text()
+        });
+    } else {
+        $('#cm-expiration-warning').hide();
+    }
+}
 
 function formatCountDown(countdown) {
 
@@ -74,6 +195,7 @@ function loadInfo() {
         });
         $('#cm-panel-loading').hide();
         $('#cm-panel-until').hide(); 
+        $('#whale-panel-starting').hide();
        
         if (response.since && response.until) { // if instance has an until
            
@@ -94,7 +216,14 @@ function loadInfo() {
                 $('#whale-challenge-count-down').text(formatCountDown(count_down)); 
                 $('#cm-panel-until').show();
                 
-                
+                // Update floating panel
+                updateFloatingPanel('running', {
+                    countdown: formatCountDown(count_down),
+                    connectionInfo: response.connectionInfo
+                });
+
+                // Check for expiration warnings
+                checkExpirationWarnings(count_down);
 
                 window.t = setInterval(() => {
                     count_down = until - new Date();
@@ -102,23 +231,40 @@ function loadInfo() {
                         loadInfo();
                     }
                     $('#whale-challenge-count-down').text(formatCountDown(count_down));
+                    
+                    // Update floating panel countdown
+                    $('#cm-float-countdown').text(formatCountDown(count_down));
+                    
+                    // Check for expiration warnings
+                    checkExpirationWarnings(count_down);
                 }, 1000);
             } else {
                 $('#whale-panel-started').hide(); // hide the panel instance is up       
                 $('#whale-panel-stopped').show(); // show the panel instance is down     
-                $('#whale-challenge-lan-domain').html(''); 
+                $('#whale-challenge-lan-domain').html('');
+                updateFloatingPanel('stopped');
             }
                     
         } else if (response.since) {    // if instance has no until
             $('#whale-panel-stopped').hide();
             $('#whale-panel-started').show();
             $('#whale-challenge-lan-domain').html(response.connectionInfo);
-        } else if (response.starting) {    // if instance has no until         
+            updateFloatingPanel('running', {
+                connectionInfo: response.connectionInfo
+            });
+        } else if (response.starting) {    // instance is starting         
+            $('#whale-panel-stopped').hide();
+            $('#whale-panel-started').hide();
+            $('#whale-panel-starting').show();
             $('#whale-challenge-lan-domain').html(response.starting);
-        } else { // if instance is expired
+            updateFloatingPanel('starting');
+            // Poll more frequently when starting
+            setTimeout(loadInfo, 5000);
+        } else { // if instance is expired or not created
             $('#whale-panel-started').hide(); // hide the panel instance is up       
             $('#whale-panel-stopped').show(); // show the panel instance is down     
-            $('#whale-challenge-lan-domain').html(''); 
+            $('#whale-challenge-lan-domain').html('');
+            updateFloatingPanel('stopped');
         }
  
         
@@ -243,6 +389,12 @@ CTFd._internal.challenge.renew = function () {
         return response.json();
     }).then(function (response) {
         if (response.success) {
+            // Reset warning flags when instance is renewed
+            window.cm_warning_shown = {
+                fifteen: false,
+                ten: false,
+                five: false
+            };
             loadInfo();
             CTFd._functions.events.eventAlert({
                 title: "Success",
