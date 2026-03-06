@@ -71,7 +71,12 @@ def create_instance(
     result = r.json()
     # terraform-challenge-manager wraps response in 'data' field
     instance_data = result.get("data", result)
-    cache.set(cache_key, instance_data, timeout=60)
+    # Don't cache if instance is locked (still deploying)
+    if not instance_data.get("locked"):
+        cache.set(cache_key, instance_data, timeout=60)
+        logger.debug("cached instance data")
+    else:
+        logger.debug("instance is locked (deploying), not caching")
 
     return instance_data
 
@@ -169,9 +174,13 @@ def get_instance(challenge_id: int, source_id: int) -> dict | ChallManagerExcept
     # terraform-challenge-manager wraps response in 'data' field
     if "data" in result and result["data"]:
         instance_data = result["data"]
-        # store in cache only if the instance exists
-        logger.debug("store result in cache for better performances")
-        cache.set(cache_key, instance_data, timeout=60)
+        # Only cache if instance is NOT locked (not still deploying)
+        # If locked, we want to fetch fresh data on next request
+        if not instance_data.get("locked"):
+            logger.debug("store result in cache for better performances")
+            cache.set(cache_key, instance_data, timeout=60)
+        else:
+            logger.debug("instance is locked (deploying), not caching")
         return instance_data
 
     return result

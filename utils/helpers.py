@@ -123,8 +123,13 @@ def calculate_all_mana_used() -> dict | ChallManagerException:
         instances = instances + list(item["instances"])
 
     for item in instances:
-        # terraform-challenge-manager uses snake_case: user_id not sourceId
-        source_id = item.get("user_id") or item.get("sourceId")
+        # Normalize snake_case to camelCase
+        if "challenge_id" in item and "challengeId" not in item:
+            item["challengeId"] = item["challenge_id"]
+        if "user_id" in item and "sourceId" not in item:
+            item["sourceId"] = item["user_id"]
+        
+        source_id = item.get("sourceId")
 
         # calculate the mana_used for this source_id
         # dict prevent calculate multiple times the same source_id

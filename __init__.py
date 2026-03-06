@@ -120,14 +120,18 @@ def load(app):  # pylint: disable=too-many-statements
         # result is a list of challenges, not a dict
         for challenge in result:
             for instance in challenge.get("instances", []):
+                # Normalize snake_case to camelCase for templates/frontend
+                if "challenge_id" in instance and "challengeId" not in instance:
+                    instance["challengeId"] = instance["challenge_id"]
+                if "user_id" in instance and "sourceId" not in instance:
+                    instance["sourceId"] = instance["user_id"]
                 instances.append(instance)
 
         user_mode = get_config("user_mode")
         for i in instances:
              # get_all_challenges() may return an empty list if the underlying challenge
             # was deleted directly in Chall-Manager. Keep the row but label it clearly.
-            # terraform-challenge-manager uses snake_case: challenge_id not challengeId
-            challenge_id = i.get("challenge_id") or i.get("challengeId")
+            challenge_id = i.get("challengeId")
             challenge = get_all_challenges(admin=True, id=challenge_id)
 
             if challenge:
@@ -234,9 +238,14 @@ def load(app):  # pylint: disable=too-many-statements
             )
 
         for i in instances:
+            # Normalize snake_case to camelCase for templates/frontend
+            if "challenge_id" in i and "challengeId" not in i:
+                i["challengeId"] = i["challenge_id"]
+            if "user_id" in i and "sourceId" not in i:
+                i["sourceId"] = i["user_id"]
+            
             # Add CTFd infos, admin=False means do no display hidden challenges
-            # terraform-challenge-manager uses snake_case: challenge_id not challengeId
-            challenge_id = i.get("challenge_id") or i.get("challengeId")
+            challenge_id = i.get("challengeId")
             challenge_entries = get_all_challenges(admin=False, id=challenge_id)
             challenge = DynamicIaCChallenge.query.filter_by(id=challenge_id).first()
             # if challenge is not hidden
