@@ -126,17 +126,19 @@ def load(app):  # pylint: disable=too-many-statements
         for i in instances:
              # get_all_challenges() may return an empty list if the underlying challenge
             # was deleted directly in Chall-Manager. Keep the row but label it clearly.
-            challenge = get_all_challenges(admin=True, id=i["challengeId"])
+            # terraform-challenge-manager uses snake_case: challenge_id not challengeId
+            challenge_id = i.get("challenge_id") or i.get("challengeId")
+            challenge = get_all_challenges(admin=True, id=challenge_id)
 
             if challenge:
                 challenge_name = challenge[0].name
                 print(challenge_name)  # Your custom Invictus print
                 i["challengeName"] = challenge_name
             else:
-                i["challengeName"] = f"Unknown challenge #{i['challengeId']}"
+                i["challengeName"] = f"Unknown challenge #{challenge_id}"
                 logger.warning(
                     "challenge_id %s referenced by Chall-Manager does not exist anymore in CTFd",
-                    i["challengeId"],
+                    challenge_id,
                 )
 
             # Your custom Invictus debug format
@@ -233,8 +235,10 @@ def load(app):  # pylint: disable=too-many-statements
 
         for i in instances:
             # Add CTFd infos, admin=False means do no display hidden challenges
-            challenge_entries = get_all_challenges(admin=False, id=i["challengeId"])
-            challenge = DynamicIaCChallenge.query.filter_by(id=i["challengeId"]).first()
+            # terraform-challenge-manager uses snake_case: challenge_id not challengeId
+            challenge_id = i.get("challenge_id") or i.get("challengeId")
+            challenge_entries = get_all_challenges(admin=False, id=challenge_id)
+            challenge = DynamicIaCChallenge.query.filter_by(id=challenge_id).first()
             # if challenge is not hidden
             if len(challenge_entries) == 1:
                 i["challengeName"] = challenge_entries[0].name
@@ -242,9 +246,9 @@ def load(app):  # pylint: disable=too-many-statements
             elif challenge is None:
                 logger.warning(
                     "challenge_id %s referenced by Chall-Manager does not exist anymore in CTFd",
-                    i["challengeId"],
+                    challenge_id,
                 )
-                i["challengeName"] = f"Unknown challenge #{i['challengeId']}"
+                i["challengeName"] = f"Unknown challenge #{challenge_id}"
                 i["challengeCategory"] = "unknown"
                 i["connectionInfo"] = "unavailable"
             else:  # challenge exists but is hidden
