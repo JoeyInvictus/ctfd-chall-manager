@@ -42,9 +42,7 @@
                 <th class="sort-col text-center"><b>Source</b></td>
                 <th class="text-center"><b>Connection Info</b></td>
                 <th class="text-center"><b>Flags</b></td>
-                <th class="sort-col text-center"><b>Since</b></td>
-                <th class="sort-col text-center"><b>Until</b></td>
-                <th class="sort-col text-center"><b>Last Renew</b></td>
+                <th class="sort-col text-center"><b>Created At</b></td>
                 <th class="text-center"><b>Renew</b></td>
                 <th class="text-center"><b>Restart</b></td>
                 <th class="text-center"><b>Delete</b></td>
@@ -106,25 +104,13 @@
                     </td>
 
                     <td class="text-center">
-                        {% set list1 = instance.since.split('T') %}
-                        {{ list1[0] }} &nbsp;
-                        {{ list1[1][0:8] }}
-                    </td>
-
-                    <td class="text-center">
-                        {% if instance.until %}
-                        {% set list1 = instance.until.split('T') %}
-                        {{ list1[0] }} &nbsp;
-                        {{ list1[1][0:8] }}
+                        {% if instance.created_at %}
+                            {% set list1 = instance.created_at.split('T') %}
+                            {{ list1[0] }} &nbsp;
+                            {{ list1[1][0:8] }}
                         {% else %}
-                        - 
+                            -
                         {% endif %}
-                    </td>
-
-                    <td class="text-center">
-                        {% set list1 = instance.lastRenew.split('T') %}
-                        {{ list1[0] }} &nbsp;
-                        {{ list1[1][0:8] }}
                     </td>
 
                     <td class="text-center">                        
