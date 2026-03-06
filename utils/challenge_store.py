@@ -44,12 +44,12 @@ def query_challenges() -> list | ChallManagerException:
     logger.debug("querying challenges from %s", url)
 
     try:
-        with s.get(url, headers=None, stream=True, timeout=CM_API_TIMEOUT) as resp:
-            for line in resp.iter_lines():
-                if line:
-                    res = line.decode("utf-8")
-                    res = json.loads(res)
-                    result.append(res["data"])
+        resp = s.get(url, headers=None, timeout=CM_API_TIMEOUT)
+        resp.raise_for_status()
+        res = resp.json()
+        # terraform-challenge-manager wraps response in {status, message, data}
+        # where data is an array of all challenges
+        result = res.get("data", [])
         logger.debug("successfully queried challenges: %s", result)
     except Exception as e:
         logger.error("error querying challenges: %s", e)
