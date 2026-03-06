@@ -23,16 +23,6 @@ CM_API_TIMEOUT = get_config("chall-manager:chall-manager_api_timeout")
 def create_instance(
     challenge_id: int, source_id: int, user_email: str = None
 ) -> dict | ChallManagerException:
-    """
-    Spins up a challenge instance, iif the challenge is registered and no instance is yet running.
-
-    :param challenge_id: id of challenge for the instance
-    :param source_id: id of source for the instance
-    :param user_email: (optional) email of the user for the instance (custom Invictus feature)
-    :return dict: JSON response of chall-manager API
-    :raise ChallManagerException:
-    """
-
     cm_api_url = get_config("chall-manager:chall-manager_api_url")
     url = f"{cm_api_url}/instances/{challenge_id}"
     cache_key = f"instance:{challenge_id}:{source_id}"
@@ -50,7 +40,8 @@ def create_instance(
     )
 
     try:
-        r = requests.put(
+        # CREATING MUST BE A POST REQUEST
+        r = requests.post(
             url, data=json.dumps(payload), headers=headers, timeout=CM_API_TIMEOUT
         )
         logger.debug("received response: %s, %s", r.status_code, r.text)
@@ -61,17 +52,14 @@ def create_instance(
         ) from e
 
     if r.status_code != 200:
-        # terraform-challenge-manager returns 'status' and 'message', not 'code'
         error_data = r.json()
         message = error_data.get("message", "Unknown error")
         logger.error("chall-manager returned an error: %s", message)
         raise ChallManagerException(message=message)
 
-    # store the informations on cache
     result = r.json()
-    # terraform-challenge-manager wraps response in 'data' field
     instance_data = result.get("data", result)
-    # Don't cache if instance is locked (still deploying)
+    
     if not instance_data.get("locked"):
         cache.set(cache_key, instance_data, timeout=60)
         logger.debug("cached instance data")
@@ -191,14 +179,15 @@ def update_instance(challenge_id: int, source_id: int) -> dict | ChallManagerExc
     url = f"{cm_api_url}/instances/{challenge_id}/{source_id}"
     cache_key = f"instance:{challenge_id}:{source_id}"
 
-    payload = {"new_timeout": 7200}
+    payload = {"new_timeout": 3600}
     headers = {"Content-Type": "application/json"}
 
-    logger.debug("updating instance for challenge_id=%s, source_id=%s", challenge_id, source_id)
+    logger.debug(
+        "updating instance for challenge_id=%s, source_id=%s", challenge_id, source_id
+    )
 
     try:
-        # Note: If v0.9.0 still rejects PATCH, we may need to change this to requests.put
-        r = requests.patch(
+        r = requests.put(
             url, data=json.dumps(payload), headers=headers, timeout=CM_API_TIMEOUT
         )
         logger.debug("received response: %s %s", r.status_code, r.text)

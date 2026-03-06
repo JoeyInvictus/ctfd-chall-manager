@@ -1,16 +1,17 @@
-CTFd._internal.challenge.data = undefined
-
+CTFd._internal.challenge.data = undefined;
 CTFd._internal.challenge.renderer = null;
 
-CTFd._internal.challenge.preRender = function () {
-}
-
+CTFd._internal.challenge.preRender = function () {};
 CTFd._internal.challenge.render = null;
 
 CTFd._internal.challenge.postRender = function () {
+    // Initialize our global deployment flag if it doesn't exist
+    if (window.cm_is_deploying === undefined) {
+        window.cm_is_deploying = false;
+    }
     loadInfo();
     showFloatingPanel();
-}
+};
 
 if (window.$ === undefined) window.$ = CTFd.lib.$;
 
@@ -135,7 +136,7 @@ function loadInfo() {
             return;
         }
 
-        // Hide all panels
+        // Hide all panels initially
         $('#cm-panel-loading').hide();
         $('#cm-panel-until').hide(); 
         $('#whale-panel-starting').hide();
@@ -143,22 +144,36 @@ function loadInfo() {
         $('#whale-panel-stopped').hide();
         $('#whale-challenge-lan-domain').html('');
 
-        // 1. IS INSTANCE FULLY RUNNING?
+        // 1. IS THE INSTANCE FULLY RUNNING?
         if (response && response.connectionInfo) {
+            window.cm_is_deploying = false; // Deployment finished, clear the flag
             $('#whale-panel-started').show();
             
-            // Fix formatting: Replace double newlines (\n\n) with single (\n) to remove huge gaps
-            let cleanInfo = response.connectionInfo.replace(/\n\n/g, '\n');
-            $('#whale-challenge-lan-domain').text(cleanInfo);
+            // Fix the ugly formatting: Replace double newlines (\n\n) with single breaks (<br>)
+            let cleanInfo = response.connectionInfo.replace(/\n\n/g, '\n').replace(/\n/g, '<br>');
             
-            // --- TIMER LOGIC ---
-            var createdAt = new Date(response.created_at || Date.now());
-            var challengeTimeout = parseInt(CTFd._internal.challenge.data.timeout) || 3600; 
-            var extraTime = parseInt(response.extra_time) || 0; 
-            var expireTime = new Date(createdAt.getTime() + ((challengeTimeout + extraTime) * 1000));
+            // Apply CSS to remove the pink CTFd code styling and make it normal text
+            $('#whale-challenge-lan-domain').css({
+                'color': 'var(--bs-body-color, inherit)', 
+                'background': 'transparent',
+                'padding': '0',
+                'font-family': 'inherit',
+                'font-size': '1rem'
+            }).html(cleanInfo);
             
-            var now = new Date();
-            var count_down = expireTime - now;
+            // --- RESTORE THE VISUAL COUNTDOWN TIMER ---
+            var expireTime;
+            
+            if (response.until) {
+                expireTime = new Date(response.until);
+            } else {
+                var createdAt = new Date(response.created_at || Date.now());
+                var challengeTimeout = parseInt(CTFd._internal.challenge.data.timeout) || 3600; 
+                var extraTime = parseInt(response.extra_time) || 0; 
+                expireTime = new Date(createdAt.getTime() + ((challengeTimeout + extraTime) * 1000));
+            }
+            
+            var count_down = expireTime - new Date();
 
             if (count_down > 0) {
                 $('#whale-challenge-count-down').text(formatCountDown(count_down)); 
@@ -166,16 +181,17 @@ function loadInfo() {
                 
                 updateFloatingPanel('running', {
                     countdown: formatCountDown(count_down),
-                    connectionInfo: cleanInfo
+                    connectionInfo: response.connectionInfo.replace(/\n\n/g, '\n') // clean for float panel
                 });
 
                 checkExpirationWarnings(count_down);
 
+                // Start the live tick
                 window.t = setInterval(() => {
                     count_down = expireTime - new Date();
                     if (count_down <= 0) {
                         clearInterval(window.t);
-                        loadInfo();
+                        loadInfo(); // Refresh state when it hits zero
                     } else {
                         $('#whale-challenge-count-down').text(formatCountDown(count_down));
                         $('#cm-float-countdown').text(formatCountDown(count_down));
@@ -184,27 +200,36 @@ function loadInfo() {
                 }, 1000);
             } else {
                 $('#whale-challenge-count-down').text("Expiring...");
-                $('#cm-panel-until').show();
             }
 
-        // 2. IS INSTANCE DEPLOYING?
-        } else if (response && (response.starting || response.locked === true || (response.created_at && !response.connectionInfo))) {
+        // 2. IS THE INSTANCE CURRENTLY DEPLOYING?
+        } else if (window.cm_is_deploying || (response && (response.starting || response.locked === true || (response.created_at && !response.connectionInfo)))) {
             $('#whale-panel-starting').show();
             
             let startMsg = response.starting || "Your instance is being deployed... Please wait. This usually takes 1-2 minutes.";
             
             // Show a nice loading message
-            $('#whale-challenge-lan-domain').css({'color': '#17a2b8', 'font-weight': 'bold'}).text(startMsg);
+            $('#whale-challenge-lan-domain').css({
+                'color': '#17a2b8', 
+                'font-weight': 'bold',
+                'font-family': 'inherit',
+                'background': 'transparent'
+            }).text(startMsg);
+            
             updateFloatingPanel('starting');
+            
+            // Poll Azure again in 5 seconds
             setTimeout(loadInfo, 5000);
 
-        // 3. NO INSTANCE EXISTS
+        // 3. NO INSTANCE EXISTS (Stopped)
         } else {
+            window.cm_is_deploying = false; // Failsafe
             $('#whale-panel-stopped').show();
             updateFloatingPanel('stopped');
         }
     });
 
+    // Get remaining mana for user
     CTFd.fetch("/api/v1/plugins/ctfd-chall-manager/mana", {
         method: 'GET',
         credentials: 'same-origin',
@@ -243,6 +268,7 @@ CTFd._internal.challenge.destroy = function() {
             return response.json();
         }).then(response => {
             if (response.success) {
+                window.cm_is_deploying = false; // Reset deployment flag
                 loadInfo();
                 CTFd._functions.events.eventAlert({ title: "Success", html: "Your instance has been destroyed!" });
                 resolve();
@@ -308,10 +334,10 @@ CTFd._internal.challenge.boot = function() {
             return response.json();
         }).then(response => {
             if (response.success) {
-                loadInfo();
-                CTFd._functions.events.eventAlert({ title: "Success", html: "Your instance is being deployed!" });
+                // Lock UI in Deploying state immediately
                 window.cm_is_deploying = true;
                 loadInfo();
+                CTFd._functions.events.eventAlert({ title: "Success", html: "Your instance is being deployed!" });
                 resolve();
             } else {
                 CTFd._functions.events.eventAlert({ title: "Fail", html: response.message });
@@ -338,6 +364,10 @@ CTFd._internal.challenge.restart = function() {
     });
 
     CTFd._internal.challenge.destroy().then(() => {
+        // Show immediate visual feedback
+        $('#whale-panel-stopped').hide();
+        $('#whale-panel-started').hide();
+        $('#whale-panel-starting').show();
         $('#whale-challenge-lan-domain').css({'color': '#17a2b8', 'font-weight': 'bold'}).text("Provisioning new lab environment... Please wait.");
         updateFloatingPanel('starting');
         
@@ -346,6 +376,7 @@ CTFd._internal.challenge.restart = function() {
              return CTFd._internal.challenge.boot();
         });
     }).then(() => {
+        // Boot handles triggering loadInfo, but we set a safe poll just in case
         setTimeout(loadInfo, 5000);
     }).catch((error) => {
         console.error('Error during restart:', error);
