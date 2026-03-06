@@ -149,6 +149,12 @@ function loadInfo() {
             window.cm_is_deploying = false; // Deployment finished, clear the flag
             $('#whale-panel-started').show();
             
+            // Update global persistent panel
+            if (window.cmGlobalPanel) {
+                const challengeCategory = CTFd._internal.challenge.data.category || 'Unknown';
+                window.cmGlobalPanel.updateInstance(challenge_id, challengeCategory, response);
+            }
+            
             // --- FILTER SENSITIVE DATA ---
             let rawLines = response.connectionInfo.split('\n');
             let filteredLines = [];
@@ -286,6 +292,12 @@ CTFd._internal.challenge.destroy = function() {
             if (response.success) {
                 window.cm_is_deploying = false; // Reset deployment flag
                 loadInfo();
+                
+                // Clear global persistent panel
+                if (window.cmGlobalPanel) {
+                    window.cmGlobalPanel.clearInstance();
+                }
+                
                 CTFd._functions.events.eventAlert({ title: "Success", html: "Your instance has been destroyed!" });
                 resolve();
             } else {

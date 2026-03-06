@@ -295,6 +295,13 @@ def load(app):  # pylint: disable=too-many-statements
 
     app.register_blueprint(page_blueprint)
     logger.info("Blueprint registered.")
+    
+    # Inject global instance panel script on all pages
+    @app.context_processor
+    def inject_global_panel_script():
+        """Inject the global instance panel script into all pages"""
+        script_url = f"/plugins/{plugin_name}/assets/global-instance-panel.js"
+        return dict(cm_global_panel_script=script_url)
 
     # https://github.com/ctfer-io/ctfd-chall-manager/issues/226
     instances_panel_enabled = (

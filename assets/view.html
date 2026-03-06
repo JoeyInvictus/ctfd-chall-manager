@@ -74,6 +74,11 @@
     
 {% endblock %}
 
+{% block scripts %}
+{{ super() }}
+<script src="{{ url_for('plugins.ctfd_chall_manager.assets', filename='global-instance-panel.js') }}" defer></script>
+{% endblock %}
+
 {% block extra_modals %}
 <div id="cm-floating-panel" style="position: fixed; bottom: 20px; right: 20px; z-index: 1050; width: 350px; display: none;">
     <div class="card shadow-lg border-primary">
