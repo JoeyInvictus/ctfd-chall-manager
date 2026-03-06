@@ -206,8 +206,8 @@ function loadInfo() {
             $('#whale-panel-started').show();
             
             // Format connection info nicely with line breaks if needed
-            let formattedInfo = response.connectionInfo.replace(/\n/g, '<br>');
-            $('#whale-challenge-lan-domain').html(formattedInfo);
+            $('#whale-challenge-lan-domain').css('white-space', 'pre-wrap');
+            $('#whale-challenge-lan-domain').html(response.connectionInfo);
             
             // --- RESTORE THE VISUAL COUNTDOWN TIMER ---
             // 1. Get the exact time the lab was spun up
@@ -459,21 +459,39 @@ CTFd._internal.challenge.restart = function() {
     $('#whale-button-renew').prop('disabled', true);
     $('#whale-button-destroy').prop('disabled', true);
     
+    CTFd._functions.events.eventAlert({
+        title: "Restarting...",
+        html: "We are destroying your old lab and provisioning a new one. This will take a few minutes.",
+        icon: "info"
+    });
+
     // First, destroy the current challenge instance
     CTFd._internal.challenge.destroy().then(() => {
-        // Then, boot a new challenge instance
-        return CTFd._internal.challenge.boot();
+        
+        $('#whale-challenge-lan-domain').html("Provisioning new lab environment... Please wait.");
+        updateFloatingPanel('starting');
+        
+        // Wait 10 seconds for the backend to clear the state, then boot
+        return new Promise(resolve => setTimeout(resolve, 10000)).then(() => {
+             return CTFd._internal.challenge.boot();
+        });
+        
     }).then(() => {
-        // Finally, load the challenge info
-        loadInfo();
+        // Poll for info 
+        setTimeout(loadInfo, 5000);
+    }).catch((error) => {
+        console.error('Error during restart:', error);
+        CTFd._functions.events.eventAlert({
+            title: "Error",
+            html: "Failed to restart the instance. Please try again.",
+            icon: "error"
+        });
+    }).finally(() => {
         $('#whale-button-boot').prop('disabled', false);
         $('#whale-button-restart').prop('disabled', false);
         $('#whale-button-renew').prop('disabled', false);
         $('#whale-button-destroy').prop('disabled', false);
-    }).catch((error) => {
-        console.error('Error during restart:', error);
     });
-    
 }
 
 

@@ -187,30 +187,17 @@ def get_instance(challenge_id: int, source_id: int) -> dict | ChallManagerExcept
 
 
 def update_instance(challenge_id: int, source_id: int) -> dict | ChallManagerException:
-    """
-    This will set the until date to the request time more the challenge timeout.
-
-    :param challenge_id: id of challenge for the instance
-    :param source_id: id of source for the instance
-    :return dict: JSON response of chall-manager API
-    :raise ChallManagerException:
-    """
-
     cm_api_url = get_config("chall-manager:chall-manager_api_url")
     url = f"{cm_api_url}/instances/{challenge_id}/{source_id}"
     cache_key = f"instance:{challenge_id}:{source_id}"
 
-    payload = {
-        "new_timeout": 3600
-    }
-
+    payload = {"new_timeout": 3600}
     headers = {"Content-Type": "application/json"}
 
-    logger.debug(
-        "updating instance for challenge_id=%s, source_id=%s", challenge_id, source_id
-    )
+    logger.debug("updating instance for challenge_id=%s, source_id=%s", challenge_id, source_id)
 
     try:
+        # Note: If v0.9.0 still rejects PATCH, we may need to change this to requests.put
         r = requests.patch(
             url, data=json.dumps(payload), headers=headers, timeout=CM_API_TIMEOUT
         )
@@ -219,48 +206,49 @@ def update_instance(challenge_id: int, source_id: int) -> dict | ChallManagerExc
         logger.error("Error updating instance: %s", e)
         raise ChallManagerException(message="error while communicating with CM") from e
 
+    # Handle rate-limiting or max renewals
+    if r.status_code == 429:
+        raise ChallManagerException(message="Instance renewal limit reached.")
+
+    # Gracefully catch the 405 Method Not Allowed or any other errors
     if r.status_code != 200:
-        if r.json()["code"] == 2:
-            message = r.json()["message"]
-            logger.error("chall-manager return an error: %s", message)
-            raise ChallManagerException(message=message)
+        error_msg = r.json().get("message", "Unknown error occurred.")
+        logger.error("chall-manager returned an error: %s", error_msg)
+        raise ChallManagerException(message=error_msg)
 
-    # update informations for the next GET request
+    # update informations for the next GET request using the new created_at key
     result = r.json()
-    if result["since"] is not None:
+    instance_data = result.get("data", result)
+    
+    if "created_at" in instance_data:
         logger.debug("store result in cache for better performances")
-        cache.set(cache_key, result, timeout=60)
+        cache.set(cache_key, instance_data, timeout=60)
 
-    return result
+    return instance_data
 
 
 def query_instance(source_id: int) -> list | ChallManagerException:
-    """
-    This will return a list with all instances that exists on chall-manager for the source_id given.
-
-    :param source_id: id of source for the instance
-    :return list: all instances for the source_id (e.g [{source_id:x, challenge_id, y},..])
-    """
-
     cm_api_url = get_config("chall-manager:chall-manager_api_url")
     url = f"{cm_api_url}/instances?sourceId={source_id}"
-    s = requests.Session()
-
-    result = []
 
     logger.debug("querying instances for sourceId=%s", source_id)
 
     try:
-        with s.get(url, headers=None, stream=True, timeout=CM_API_TIMEOUT) as resp:
-            for line in resp.iter_lines():
-                if line:
-                    res = line.decode("utf-8")
-                    res = json.loads(res)
-                    if "result" in res.keys():
-                        result.append(res["result"])
-        logger.debug("successfully queried instances: %s", result)
+        r = requests.get(url, timeout=CM_API_TIMEOUT)
+        r.raise_for_status()
+        
+        data = r.json()
+        # Handle the new v0.9.0 standard JSON response
+        if isinstance(data, dict):
+            result = data.get("data", [])
+        elif isinstance(data, list):
+            result = data
+        else:
+            result = []
+            
+        logger.debug("successfully queried instances: %s", len(result))
+        return result
+        
     except Exception as e:
         logger.error("connection error: %s", e)
         raise ChallManagerException(message="connection error") from e
-
-    return result
