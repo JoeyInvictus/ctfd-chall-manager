@@ -50,7 +50,7 @@ def create_instance(
     )
 
     try:
-        r = requests.post(
+        r = requests.put(
             url, data=json.dumps(payload), headers=headers, timeout=CM_API_TIMEOUT
         )
         logger.debug("received response: %s, %s", r.status_code, r.text)
@@ -191,7 +191,7 @@ def update_instance(challenge_id: int, source_id: int) -> dict | ChallManagerExc
     url = f"{cm_api_url}/instances/{challenge_id}/{source_id}"
     cache_key = f"instance:{challenge_id}:{source_id}"
 
-    payload = {"new_timeout": 3600}
+    payload = {"new_timeout": 7200}
     headers = {"Content-Type": "application/json"}
 
     logger.debug("updating instance for challenge_id=%s, source_id=%s", challenge_id, source_id)

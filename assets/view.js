@@ -9,7 +9,6 @@ CTFd._internal.challenge.render = null;
 
 CTFd._internal.challenge.postRender = function () {
     loadInfo();
-    // Show floating panel
     showFloatingPanel();
 }
 
@@ -22,42 +21,25 @@ window.cm_warning_shown = {
     five: false
 };
 
-// Show the floating panel
 function showFloatingPanel() {
     const panel = document.getElementById('cm-floating-panel');
-    if (panel) {
-        panel.style.display = 'block';
-    }
+    if (panel) panel.style.display = 'block';
 }
 
-// Update floating panel state
 function updateFloatingPanel(state, data = {}) {
-    // Hide all states
     $('#cm-float-loading').hide();
     $('#cm-float-stopped').hide();
     $('#cm-float-starting').hide();
     $('#cm-float-running').hide();
     
-    // Show requested state
     switch(state) {
-        case 'loading':
-            $('#cm-float-loading').show();
-            break;
-        case 'stopped':
-            $('#cm-float-stopped').show();
-            break;
-        case 'starting':
-            $('#cm-float-starting').show();
-            break;
+        case 'loading': $('#cm-float-loading').show(); break;
+        case 'stopped': $('#cm-float-stopped').show(); break;
+        case 'starting': $('#cm-float-starting').show(); break;
         case 'running':
             $('#cm-float-running').show();
-            if (data.countdown) {
-                $('#cm-float-countdown').text(data.countdown);
-            }
-            if (data.connectionInfo) {
-                $('#cm-float-connection').text(data.connectionInfo);
-            }
-            // Handle expiration warning
+            if (data.countdown) $('#cm-float-countdown').text(data.countdown);
+            if (data.connectionInfo) $('#cm-float-connection').text(data.connectionInfo);
             if (data.showWarning && data.warningMessage) {
                 $('#cm-float-warning-message').text(data.warningMessage);
                 $('#cm-float-expiration-warning').show();
@@ -68,7 +50,6 @@ function updateFloatingPanel(state, data = {}) {
     }
 }
 
-// Check and show expiration warnings
 function checkExpirationWarnings(count_down_ms) {
     const minutes = Math.floor(count_down_ms / (1000 * 60));
     const FIFTEEN_MIN = 15 * 60 * 1000;
@@ -78,47 +59,28 @@ function checkExpirationWarnings(count_down_ms) {
     let showWarning = false;
     let warningMessage = '';
     
-    // 15 minute warning
     if (count_down_ms <= FIFTEEN_MIN && count_down_ms > TEN_MIN && !window.cm_warning_shown.fifteen) {
         window.cm_warning_shown.fifteen = true;
         warningMessage = 'Your instance will expire in 15 minutes! Click Renew to add more time.';
         showWarning = true;
-        CTFd._functions.events.eventAlert({
-            title: "Instance Expiring Soon",
-            html: warningMessage,
-            icon: "warning"
-        });
-    }
-    // 10 minute warning
-    else if (count_down_ms <= TEN_MIN && count_down_ms > FIVE_MIN && !window.cm_warning_shown.ten) {
+        CTFd._functions.events.eventAlert({ title: "Instance Expiring Soon", html: warningMessage, icon: "warning" });
+    } else if (count_down_ms <= TEN_MIN && count_down_ms > FIVE_MIN && !window.cm_warning_shown.ten) {
         window.cm_warning_shown.ten = true;
         warningMessage = 'Your instance will expire in 10 minutes! Click Renew to add more time.';
         showWarning = true;
-        CTFd._functions.events.eventAlert({
-            title: "Instance Expiring Soon",
-            html: warningMessage,
-            icon: "warning"
-        });
-    }
-    // 5 minute warning
-    else if (count_down_ms <= FIVE_MIN && count_down_ms > 0 && !window.cm_warning_shown.five) {
+        CTFd._functions.events.eventAlert({ title: "Instance Expiring Soon", html: warningMessage, icon: "warning" });
+    } else if (count_down_ms <= FIVE_MIN && count_down_ms > 0 && !window.cm_warning_shown.five) {
         window.cm_warning_shown.five = true;
         warningMessage = 'Your instance will expire in 5 minutes! Click Renew NOW to add more time.';
         showWarning = true;
-        CTFd._functions.events.eventAlert({
-            title: "Instance Expiring VERY Soon!",
-            html: warningMessage,
-            icon: "error"
-        });
+        CTFd._functions.events.eventAlert({ title: "Instance Expiring VERY Soon!", html: warningMessage, icon: "error" });
     }
     
-    // Show persistent warning in panel when under 15 minutes
     if (count_down_ms <= FIFTEEN_MIN && count_down_ms > 0) {
         warningMessage = `Your instance expires in ${minutes} minute${minutes !== 1 ? 's' : ''}!`;
         showWarning = true;
     }
     
-    // Update both inline and floating panels
     if (showWarning) {
         $('#cm-warning-message').text(warningMessage);
         $('#cm-expiration-warning').show();
@@ -135,28 +97,17 @@ function checkExpirationWarnings(count_down_ms) {
 }
 
 function formatCountDown(countdown) {
-
-    // Convert
     var seconds = Math.floor((countdown / 1000) % 60);
     var minutes = Math.floor((countdown / (1000 * 60)) % 60);
     var hours = Math.floor((countdown / (1000 * 60 * 60)) % 24);    
     var days = Math.floor((countdown / (1000 * 60 * 60 * 24 )) % 365);  
 
-    // Build str
-    var formattedCountdown = "" 
+    var formattedCountdown = "";
+    if (days > 0) formattedCountdown += days.toString() + "d ";
+    if (hours > 0) formattedCountdown += hours.toString().padStart(2, '0') + ":";
+    if (minutes > 0) formattedCountdown += minutes.toString().padStart(2, '0') + ":";
     
-    if (days > 0) {
-      formattedCountdown = formattedCountdown + days.toString() + "d " 
-    }
-    if (hours > 0 ){
-      formattedCountdown = formattedCountdown + hours.toString().padStart(2, '0') + ":"
-    }
-    if (minutes > 0){
-      formattedCountdown = formattedCountdown + minutes.toString().padStart(2, '0') + ":"
-    }
-    
-    formattedCountdown = formattedCountdown + seconds.toString().padStart(2, '0');        
-
+    formattedCountdown += seconds.toString().padStart(2, '0');        
     return formattedCountdown;
 }
 
@@ -167,14 +118,9 @@ function loadInfo() {
     CTFd.fetch(url, {
         method: 'GET',
         credentials: 'same-origin',
-        headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json'
-        },
+        headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
     }).then(function (response) {
-        if (response.status === 429 || response.status === 403) {
-            return response.json();
-        }
+        if (response.status === 429 || response.status === 403) return response.json();
         return response.json();
     }).then(function (response) {
         if (window.t !== undefined) {
@@ -185,14 +131,11 @@ function loadInfo() {
         if (response.success) {
             response = response.data;
         } else {
-            CTFd._functions.events.eventAlert({
-                title: "Fail",
-                html: response.message,
-            });
+            CTFd._functions.events.eventAlert({ title: "Fail", html: response.message });
             return;
         }
 
-        // Hide all panels initially
+        // Hide all panels
         $('#cm-panel-loading').hide();
         $('#cm-panel-until').hide(); 
         $('#whale-panel-starting').hide();
@@ -200,36 +143,20 @@ function loadInfo() {
         $('#whale-panel-stopped').hide();
         $('#whale-challenge-lan-domain').html('');
 
-        // LOGIC CHECK: Is the instance active/starting?
+        // 1. IS INSTANCE FULLY RUNNING?
         if (response && response.connectionInfo) {
-            // The instance is running and has connection details
             $('#whale-panel-started').show();
             
-            // Format connection info nicely with line breaks if needed
-            $('#whale-challenge-lan-domain').css('white-space', 'pre-wrap');
-            $('#whale-challenge-lan-domain').html(response.connectionInfo);
+            // Fix formatting: Replace double newlines (\n\n) with single (\n) to remove huge gaps
+            let cleanInfo = response.connectionInfo.replace(/\n\n/g, '\n');
+            $('#whale-challenge-lan-domain').text(cleanInfo);
             
-            // --- RESTORE THE VISUAL COUNTDOWN TIMER ---
-            // 1. Get the exact time the lab was spun up
-            var createdAt = new Date(response.created_at);
-            
-            // 2. Get the challenge timeout limit in seconds (Fallback to 1 hour)
+            // --- TIMER LOGIC ---
+            var createdAt = new Date(response.created_at || Date.now());
             var challengeTimeout = parseInt(CTFd._internal.challenge.data.timeout) || 3600; 
-            
-            // 3. Add any additional time the student earned by clicking "Renew"
             var extraTime = parseInt(response.extra_time) || 0; 
-            
-            // Calculate final expiration time
             var expireTime = new Date(createdAt.getTime() + ((challengeTimeout + extraTime) * 1000));
             
-            // Safety Check: Cap the max time to the global Challenge expiration if it exists
-            if (CTFd._internal.challenge.data.until) {
-                var globalUntil = new Date(CTFd._internal.challenge.data.until);
-                if (globalUntil < expireTime) {
-                    expireTime = globalUntil;
-                }
-            }
-
             var now = new Date();
             var count_down = expireTime - now;
 
@@ -239,17 +166,16 @@ function loadInfo() {
                 
                 updateFloatingPanel('running', {
                     countdown: formatCountDown(count_down),
-                    connectionInfo: response.connectionInfo
+                    connectionInfo: cleanInfo
                 });
 
                 checkExpirationWarnings(count_down);
 
-                // Start the live tick
                 window.t = setInterval(() => {
                     count_down = expireTime - new Date();
                     if (count_down <= 0) {
                         clearInterval(window.t);
-                        loadInfo(); // Refresh state when it hits zero
+                        loadInfo();
                     } else {
                         $('#whale-challenge-count-down').text(formatCountDown(count_down));
                         $('#cm-float-countdown').text(formatCountDown(count_down));
@@ -258,34 +184,33 @@ function loadInfo() {
                 }, 1000);
             } else {
                 $('#whale-challenge-count-down').text("Expiring...");
+                $('#cm-panel-until').show();
             }
-            // -----------------------------------------
 
-        } else if (response && response.created_at && !response.connectionInfo) {
-            // The instance is recorded in DB but connection info is missing (Still Deploying)
+        // 2. IS INSTANCE DEPLOYING?
+        } else if (response && (response.starting || response.locked === true || (response.created_at && !response.connectionInfo))) {
             $('#whale-panel-starting').show();
-            $('#whale-challenge-lan-domain').html("Starting challenge... Please wait.");
+            
+            let startMsg = response.starting || "Your instance is being deployed... Please wait. This usually takes 1-2 minutes.";
+            
+            // Show a nice loading message
+            $('#whale-challenge-lan-domain').css({'color': '#17a2b8', 'font-weight': 'bold'}).text(startMsg);
             updateFloatingPanel('starting');
             setTimeout(loadInfo, 5000);
+
+        // 3. NO INSTANCE EXISTS
         } else {
-            // No instance exists, show the Launch button
             $('#whale-panel-stopped').show();
             updateFloatingPanel('stopped');
         }
     });
 
-    // get remaining mana for user
     CTFd.fetch("/api/v1/plugins/ctfd-chall-manager/mana", {
         method: 'GET',
         credentials: 'same-origin',
-        headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json'
-        },
+        headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
     }).then(function (response) {
-        if (response.status === 429 || response.status === 403) {
-            return response.json();
-        }
+        if (response.status === 429 || response.status === 403) return response.json();
         return response.json();
     }).then(function (response) {
         if (response.success && response.data) {
@@ -307,37 +232,22 @@ CTFd._internal.challenge.destroy = function() {
         $('#whale-button-destroy').text("Waiting...");
         $('#whale-button-destroy').prop('disabled', true);
 
-        let params = {
-            "challengeId": challenge_id,
-        };
-    
+        let params = { "challengeId": challenge_id };
 
         CTFd.fetch(url, {
             method: 'DELETE',
             credentials: 'same-origin',
-            headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
-            },
+            headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
             body: JSON.stringify(params)
         }).then(response => {
-            if (response.status === 429 || response.status === 403) {
-                return response.json();
-            }
             return response.json();
         }).then(response => {
             if (response.success) {
                 loadInfo();
-                CTFd._functions.events.eventAlert({
-                    title: "Success",
-                    html: "Your instance has been destroyed!",
-                });
+                CTFd._functions.events.eventAlert({ title: "Success", html: "Your instance has been destroyed!" });
                 resolve();
             } else {
-                CTFd._functions.events.eventAlert({
-                    title: "Fail",
-                    html: response.message,
-                });
+                CTFd._functions.events.eventAlert({ title: "Fail", html: response.message });
                 reject(response.message);
             }
         }).catch(error => {
@@ -349,7 +259,6 @@ CTFd._internal.challenge.destroy = function() {
     });
 };
 
-
 CTFd._internal.challenge.renew = function () {
     var challenge_id = CTFd._internal.challenge.data.id;
     var url = "/api/v1/plugins/ctfd-chall-manager/instance";
@@ -357,46 +266,22 @@ CTFd._internal.challenge.renew = function () {
     $('#whale-button-renew').text("Waiting...");
     $('#whale-button-renew').prop('disabled', true);
 
-    var params = {
-        "challengeId": challenge_id,
-    };
+    var params = { "challengeId": challenge_id };
 
     CTFd.fetch(url, {
         method: 'PATCH',
         credentials: 'same-origin',
-        headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json'
-        },
+        headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
         body: JSON.stringify(params)
     }).then(function (response) {
-        if (response.status === 429) {
-            // User was ratelimited but process response
-            return response.json();
-        }
-        if (response.status === 403) {
-            // User is not logged in or CTF is paused.
-            return response.json();
-        }
         return response.json();
     }).then(function (response) {
         if (response.success) {
-            // Reset warning flags when instance is renewed
-            window.cm_warning_shown = {
-                fifteen: false,
-                ten: false,
-                five: false
-            };
+            window.cm_warning_shown = { fifteen: false, ten: false, five: false };
             loadInfo();
-            CTFd._functions.events.eventAlert({
-                title: "Success",
-                html: response.data.message, // load custom message from api
-            });
+            CTFd._functions.events.eventAlert({ title: "Success", html: "Time successfully extended!" });
         } else {
-            CTFd._functions.events.eventAlert({
-                title: "Fail",
-                html: response.message,
-            });
+            CTFd._functions.events.eventAlert({ title: "Fail", html: response.message });
         }
     }).finally(() => {
         $('#whale-button-renew').text("Renew");
@@ -412,36 +297,24 @@ CTFd._internal.challenge.boot = function() {
         $('#whale-button-boot').text("Waiting...");
         $('#whale-button-boot').prop('disabled', true);
 
-        var params = {
-            "challengeId": challenge_id.toString()
-        };
+        var params = { "challengeId": challenge_id.toString() };
 
         CTFd.fetch(url, {
             method: 'POST',
             credentials: 'same-origin',
-            headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
-            },
+            headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
             body: JSON.stringify(params)
         }).then(response => {
-            if (response.status === 429 || response.status === 403) {
-                return response.json();
-            }
             return response.json();
         }).then(response => {
             if (response.success) {
                 loadInfo();
-                CTFd._functions.events.eventAlert({
-                    title: "Success",
-                    html: "Your instance has been deployed!",
-                });
+                CTFd._functions.events.eventAlert({ title: "Success", html: "Your instance is being deployed!" });
+                window.cm_is_deploying = true;
+                loadInfo();
                 resolve();
             } else {
-                CTFd._functions.events.eventAlert({
-                    title: "Fail",
-                    html: response.message,
-                });
+                CTFd._functions.events.eventAlert({ title: "Fail", html: response.message });
             }
         }).catch(error => {
             reject(error);
@@ -451,7 +324,6 @@ CTFd._internal.challenge.boot = function() {
         });
     });
 };
-
 
 CTFd._internal.challenge.restart = function() {
     $('#whale-button-boot').prop('disabled', true);
@@ -465,27 +337,18 @@ CTFd._internal.challenge.restart = function() {
         icon: "info"
     });
 
-    // First, destroy the current challenge instance
     CTFd._internal.challenge.destroy().then(() => {
-        
-        $('#whale-challenge-lan-domain').html("Provisioning new lab environment... Please wait.");
+        $('#whale-challenge-lan-domain').css({'color': '#17a2b8', 'font-weight': 'bold'}).text("Provisioning new lab environment... Please wait.");
         updateFloatingPanel('starting');
         
         // Wait 10 seconds for the backend to clear the state, then boot
         return new Promise(resolve => setTimeout(resolve, 10000)).then(() => {
              return CTFd._internal.challenge.boot();
         });
-        
     }).then(() => {
-        // Poll for info 
         setTimeout(loadInfo, 5000);
     }).catch((error) => {
         console.error('Error during restart:', error);
-        CTFd._functions.events.eventAlert({
-            title: "Error",
-            html: "Failed to restart the instance. Please try again.",
-            icon: "error"
-        });
     }).finally(() => {
         $('#whale-button-boot').prop('disabled', false);
         $('#whale-button-restart').prop('disabled', false);
@@ -494,30 +357,18 @@ CTFd._internal.challenge.restart = function() {
     });
 }
 
-
-// // Old behavior in plugin for theme compatibility
-// https://github.com/ctfer-io/ctfd-chall-manager/issues/234
 CTFd._internal.challenge.submit = function(preview) {
     var challenge_id = parseInt($('#challenge-id').val())
-    var submission = $('#challenge-input').val() // id changed in newer version of CTFd (old: #submission-input)
+    var submission = $('#challenge-input').val() 
 
     var body = {
         'challenge_id': challenge_id,
         'submission': submission,
     }
     var params = {}
-    if (preview)
-        params['preview'] = true
+    if (preview) params['preview'] = true
 
     return CTFd.api.post_challenge_attempt(params, body).then(function(response) {
-        if (response.status === 429) {
-            // User was ratelimited but process response
-            return response
-        }
-        if (response.status === 403) {
-            // User is not logged in or CTF is paused.
-            return response
-        }
         return response
     })
 };
