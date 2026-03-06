@@ -21,8 +21,7 @@
                 <th class="sort-col text-center"><b>Challenge</b></td>
                 {% if mana_enabled %}<th class="text-center"><b>Mana Cost</b></td>{% endif %}
                 <th class="text-center"><b>Connection Info</b></td>
-                <th class="sort-col text-center"><b>Since</b></td>
-                <th class="sort-col text-center"><b>Until</b></td>
+                <th class="sort-col text-center"><b>Created At</b></td>
             </tr>
             </thead>
 
@@ -40,6 +39,7 @@
                         <div class="form-check" id="challenge-name">
                                 {{ instance.challengeName }}
                         </div>
+                    </td>
                     {% if mana_enabled %}
                     <td class="text-center">
                         <div class="form-check" id="challenge-mana-cost">
@@ -55,18 +55,12 @@
                     </td>
 
                     <td class="text-center">
-                        {% set list1 = instance.since.split('T') %}
-                        {{ list1[0] }} &nbsp;
-                        {{ list1[1][0:8] }}
-                    </td>
-
-                    <td class="text-center">
-                        {% if instance.until %}
-                        {% set list1 = instance.until.split('T') %}
-                        {{ list1[0] }} &nbsp;
-                        {{ list1[1][0:8] }}
+                        {% if instance.created_at %}
+                            {% set list1 = instance.created_at.split('T') %}
+                            {{ list1[0] }} &nbsp;
+                            {{ list1[1][0:8] }}
                         {% else %}
-                        - 
+                            -
                         {% endif %}
                     </td>
 

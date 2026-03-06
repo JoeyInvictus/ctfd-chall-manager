@@ -164,7 +164,6 @@ function loadInfo() {
     var challenge_id = CTFd._internal.challenge.data.id;
     var url = "/api/v1/plugins/ctfd-chall-manager/instance?challengeId=" + challenge_id;
 
-
     CTFd.fetch(url, {
         method: 'GET',
         credentials: 'same-origin',
@@ -173,13 +172,7 @@ function loadInfo() {
             'Content-Type': 'application/json'
         },
     }).then(function (response) {
-        
-        if (response.status === 429) {
-            // User was ratelimited but process response
-            return response.json();
-        }
-        if (response.status === 403) {
-            // User is not logged in or CTF is paused.
+        if (response.status === 429 || response.status === 403) {
             return response.json();
         }
         return response.json();
@@ -188,89 +181,100 @@ function loadInfo() {
             clearInterval(window.t);
             window.t = undefined;
         }
-        if (response.success) response = response.data;
-        else CTFd._functions.events.eventAlert({
-            title: "Fail",
-            html: response.message,
-        });
+
+        if (response.success) {
+            response = response.data;
+        } else {
+            CTFd._functions.events.eventAlert({
+                title: "Fail",
+                html: response.message,
+            });
+            return;
+        }
+
+        // Hide all panels initially
         $('#cm-panel-loading').hide();
         $('#cm-panel-until').hide(); 
         $('#whale-panel-starting').hide();
-       
-        if (response.since && response.until) { // if instance has an until
-           
-            // check instance is not expired
+        $('#whale-panel-started').hide();
+        $('#whale-panel-stopped').hide();
+        $('#whale-challenge-lan-domain').html('');
+
+        // LOGIC CHECK: Is the instance active/starting?
+        if (response && response.connectionInfo) {
+            // The instance is running and has connection details
+            $('#whale-panel-started').show();
+            
+            // Format connection info nicely with line breaks if needed
+            let formattedInfo = response.connectionInfo.replace(/\n/g, '<br>');
+            $('#whale-challenge-lan-domain').html(formattedInfo);
+            
+            // --- RESTORE THE VISUAL COUNTDOWN TIMER ---
+            // 1. Get the exact time the lab was spun up
+            var createdAt = new Date(response.created_at);
+            
+            // 2. Get the challenge timeout limit in seconds (Fallback to 1 hour)
+            var challengeTimeout = parseInt(CTFd._internal.challenge.data.timeout) || 3600; 
+            
+            // 3. Add any additional time the student earned by clicking "Renew"
+            var extraTime = parseInt(response.extra_time) || 0; 
+            
+            // Calculate final expiration time
+            var expireTime = new Date(createdAt.getTime() + ((challengeTimeout + extraTime) * 1000));
+            
+            // Safety Check: Cap the max time to the global Challenge expiration if it exists
+            if (CTFd._internal.challenge.data.until) {
+                var globalUntil = new Date(CTFd._internal.challenge.data.until);
+                if (globalUntil < expireTime) {
+                    expireTime = globalUntil;
+                }
+            }
+
             var now = new Date();
-            var until = new Date(response.until);
-            
-            console.log(now);
-            console.log(until);
-            
-            var count_down = until - now;
-            console.log(count_down);
-            if (count_down > 0) {   // if the instance is not expired         
-                
-                $('#whale-panel-stopped').hide();
-                $('#whale-panel-started').show();
-                $('#whale-challenge-lan-domain').html(response.connectionInfo);                
+            var count_down = expireTime - now;
+
+            if (count_down > 0) {
                 $('#whale-challenge-count-down').text(formatCountDown(count_down)); 
                 $('#cm-panel-until').show();
                 
-                // Update floating panel
                 updateFloatingPanel('running', {
                     countdown: formatCountDown(count_down),
                     connectionInfo: response.connectionInfo
                 });
 
-                // Check for expiration warnings
                 checkExpirationWarnings(count_down);
 
+                // Start the live tick
                 window.t = setInterval(() => {
-                    count_down = until - new Date();
+                    count_down = expireTime - new Date();
                     if (count_down <= 0) {
-                        loadInfo();
+                        clearInterval(window.t);
+                        loadInfo(); // Refresh state when it hits zero
+                    } else {
+                        $('#whale-challenge-count-down').text(formatCountDown(count_down));
+                        $('#cm-float-countdown').text(formatCountDown(count_down));
+                        checkExpirationWarnings(count_down);
                     }
-                    $('#whale-challenge-count-down').text(formatCountDown(count_down));
-                    
-                    // Update floating panel countdown
-                    $('#cm-float-countdown').text(formatCountDown(count_down));
-                    
-                    // Check for expiration warnings
-                    checkExpirationWarnings(count_down);
                 }, 1000);
             } else {
-                $('#whale-panel-started').hide(); // hide the panel instance is up       
-                $('#whale-panel-stopped').show(); // show the panel instance is down     
-                $('#whale-challenge-lan-domain').html('');
-                updateFloatingPanel('stopped');
+                $('#whale-challenge-count-down').text("Expiring...");
             }
-                    
-        } else if (response.since) {    // if instance has no until
-            $('#whale-panel-stopped').hide();
-            $('#whale-panel-started').show();
-            $('#whale-challenge-lan-domain').html(response.connectionInfo);
-            updateFloatingPanel('running', {
-                connectionInfo: response.connectionInfo
-            });
-        } else if (response.starting) {    // instance is starting         
-            $('#whale-panel-stopped').hide();
-            $('#whale-panel-started').hide();
+            // -----------------------------------------
+
+        } else if (response && response.created_at && !response.connectionInfo) {
+            // The instance is recorded in DB but connection info is missing (Still Deploying)
             $('#whale-panel-starting').show();
-            $('#whale-challenge-lan-domain').html(response.starting);
+            $('#whale-challenge-lan-domain').html("Starting challenge... Please wait.");
             updateFloatingPanel('starting');
-            // Poll more frequently when starting
             setTimeout(loadInfo, 5000);
-        } else { // if instance is expired or not created
-            $('#whale-panel-started').hide(); // hide the panel instance is up       
-            $('#whale-panel-stopped').show(); // show the panel instance is down     
-            $('#whale-challenge-lan-domain').html('');
+        } else {
+            // No instance exists, show the Launch button
+            $('#whale-panel-stopped').show();
             updateFloatingPanel('stopped');
         }
- 
-        
     });
 
-    // get renaming mana for user
+    // get remaining mana for user
     CTFd.fetch("/api/v1/plugins/ctfd-chall-manager/mana", {
         method: 'GET',
         credentials: 'same-origin',
@@ -279,30 +283,18 @@ function loadInfo() {
             'Content-Type': 'application/json'
         },
     }).then(function (response) {
-        
-        if (response.status === 429) {
-            // User was ratelimited but process response
-            return response.json();
-        }
-        if (response.status === 403) {
-            // User is not logged in or CTF is paused.
+        if (response.status === 429 || response.status === 403) {
             return response.json();
         }
         return response.json();
     }).then(function (response) {
-        if (response.success) response = response.data;
-        else CTFd._functions.events.eventAlert({
-            title: "Fail",
-            html: response.message,
-        });
-        return response
-    }).then(function (response){
-        if (response.total == 0){
-            $('.cm-panel-mana-cost-div').hide();  // hide the mana cost div if mana is disabled
-        }
-        else {
-            let remaining = response.total - response.used
-            $('#cm-challenge-mana-remaining').html(remaining);
+        if (response.success && response.data) {
+            if (response.data.total == 0){
+                $('.cm-panel-mana-cost-div').hide();
+            } else {
+                let remaining = response.data.total - response.data.used;
+                $('#cm-challenge-mana-remaining').html(remaining);
+            }
         }
     });
 };
