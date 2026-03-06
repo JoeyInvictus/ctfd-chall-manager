@@ -49,7 +49,7 @@ def query_challenges() -> list | ChallManagerException:
                 if line:
                     res = line.decode("utf-8")
                     res = json.loads(res)
-                    result.append(res["result"])
+                    result.append(res["data"])
         logger.debug("successfully queried challenges: %s", result)
     except Exception as e:
         logger.error("error querying challenges: %s", e)

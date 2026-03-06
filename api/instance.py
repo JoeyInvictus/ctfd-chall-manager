@@ -91,9 +91,16 @@ class UserInstance(Resource):
 
         # return only necessary values
         data = {}
-        for k in ["connectionInfo", "until", "since"]:
-            if k in result.keys():
-                data[k] = result[k]
+        
+        # Check if instance is locked (Terraform still running)
+        if result.get("locked") == True:
+            # Instance is starting - Terraform deployment in progress
+            data["starting"] = "Your instance is being deployed... Please wait."
+        else:
+            # Instance is ready - return connection info
+            for k in ["connectionInfo", "until", "since"]:
+                if k in result.keys():
+                    data[k] = result[k]
 
         return {"success": True, "data": data}, 200
 
@@ -167,9 +174,16 @@ class UserInstance(Resource):
 
         # return only necessary values
         data = {}
-        for k in ["connectionInfo", "until", "since"]:
-            if k in result.keys():
-                data[k] = result[k]
+        
+        # Check if instance is locked (Terraform still running)
+        if result.get("locked") == True:
+            # Instance is starting - Terraform deployment in progress
+            data["starting"] = "Your instance is being deployed... Please wait."
+        else:
+            # Instance is ready - return connection info
+            for k in ["connectionInfo", "until", "since"]:
+                if k in result.keys():
+                    data[k] = result[k]
 
         return {"success": True, "data": data}, 200
 
