@@ -149,10 +149,27 @@ function loadInfo() {
             window.cm_is_deploying = false; // Deployment finished, clear the flag
             $('#whale-panel-started').show();
             
-            // Fix the ugly formatting: Replace double newlines (\n\n) with single breaks (<br>)
-            let cleanInfo = response.connectionInfo.replace(/\n\n/g, '\n').replace(/\n/g, '<br>');
+            // --- FILTER SENSITIVE DATA ---
+            let rawLines = response.connectionInfo.split('\n');
+            let filteredLines = [];
             
-            // Apply CSS to remove the pink CTFd code styling and make it normal text
+            for (let line of rawLines) {
+                let lowerLine = line.toLowerCase();
+                
+                // Skip empty lines to fix spacing
+                if (line.trim() === '') continue; 
+                
+                // FILTER: Hide any lines containing 'username' or 'password' etc
+                if (lowerLine.includes('username') || lowerLine.includes('password')) {
+                    continue; 
+                }
+                
+                filteredLines.push(line);
+            }
+            
+            // Join the safe lines back together with HTML line breaks
+            let cleanInfo = filteredLines.join('<br>');
+            
             $('#whale-challenge-lan-domain').css({
                 'color': 'var(--bs-body-color, inherit)', 
                 'background': 'transparent',
@@ -161,9 +178,8 @@ function loadInfo() {
                 'font-size': '1rem'
             }).html(cleanInfo);
             
-            // --- RESTORE THE VISUAL COUNTDOWN TIMER ---
+            // --- TIMER LOGIC ---
             var expireTime;
-            
             if (response.until) {
                 expireTime = new Date(response.until);
             } else {
@@ -179,19 +195,19 @@ function loadInfo() {
                 $('#whale-challenge-count-down').text(formatCountDown(count_down)); 
                 $('#cm-panel-until').show();
                 
+                // Send the safe, filtered text to the floating panel too
                 updateFloatingPanel('running', {
                     countdown: formatCountDown(count_down),
-                    connectionInfo: response.connectionInfo.replace(/\n\n/g, '\n') // clean for float panel
+                    connectionInfo: filteredLines.join('\n') 
                 });
 
                 checkExpirationWarnings(count_down);
 
-                // Start the live tick
                 window.t = setInterval(() => {
                     count_down = expireTime - new Date();
                     if (count_down <= 0) {
                         clearInterval(window.t);
-                        loadInfo(); // Refresh state when it hits zero
+                        loadInfo(); 
                     } else {
                         $('#whale-challenge-count-down').text(formatCountDown(count_down));
                         $('#cm-float-countdown').text(formatCountDown(count_down));

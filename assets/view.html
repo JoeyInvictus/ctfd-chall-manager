@@ -38,10 +38,15 @@
                     <h6 id="cm-panel-until" class="card-subtitle mb-2 text-muted" style="display: none;">
                         Remaining Time: <span id="whale-challenge-count-down" data-test-id="cm-challenge-count-down"></span>
                     </h6>
+                    
                     <div id="cm-expiration-warning" class="alert alert-warning" role="alert" style="display: none;">
                         <i class="fas fa-exclamation-triangle"></i> <span id="cm-warning-message"></span>
                     </div>
+                    
+                    <div id="whale-challenge-lan-domain" data-test-id="cm-connectionInfo-id" style="white-space: pre-wrap; margin-top: 15px; margin-bottom: 20px; font-family: inherit;"></div>
+                    
                     <p id="whale-challenge-user-access" class="card-text"></p>
+                    
                     {% if not challenge.shared %}
                     {% if challenge.timeout %}
                     <button type="button" class="btn btn-success card-link" style="background-color:#ebb850; border-color:#000000" id="whale-button-renew" data-test-id="cm-button-renew"
@@ -66,8 +71,6 @@
         </div>
         
     </div>
-
-    <div id="whale-challenge-lan-domain" data-test-id="cm-connectionInfo-id" style="white-space: pre-wrap; margin-top: 15px; font-family: monospace;"></div>
     
 {% endblock %}
 
