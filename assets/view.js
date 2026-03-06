@@ -10,7 +10,6 @@ CTFd._internal.challenge.postRender = function () {
         window.cm_is_deploying = false;
     }
     loadInfo();
-    showFloatingPanel();
 };
 
 if (window.$ === undefined) window.$ = CTFd.lib.$;
@@ -21,35 +20,6 @@ window.cm_warning_shown = {
     ten: false,
     five: false
 };
-
-function showFloatingPanel() {
-    const panel = document.getElementById('cm-floating-panel');
-    if (panel) panel.style.display = 'block';
-}
-
-function updateFloatingPanel(state, data = {}) {
-    $('#cm-float-loading').hide();
-    $('#cm-float-stopped').hide();
-    $('#cm-float-starting').hide();
-    $('#cm-float-running').hide();
-    
-    switch(state) {
-        case 'loading': $('#cm-float-loading').show(); break;
-        case 'stopped': $('#cm-float-stopped').show(); break;
-        case 'starting': $('#cm-float-starting').show(); break;
-        case 'running':
-            $('#cm-float-running').show();
-            if (data.countdown) $('#cm-float-countdown').text(data.countdown);
-            if (data.connectionInfo) $('#cm-float-connection').text(data.connectionInfo);
-            if (data.showWarning && data.warningMessage) {
-                $('#cm-float-warning-message').text(data.warningMessage);
-                $('#cm-float-expiration-warning').show();
-            } else {
-                $('#cm-float-expiration-warning').hide();
-            }
-            break;
-    }
-}
 
 function checkExpirationWarnings(count_down_ms) {
     const minutes = Math.floor(count_down_ms / (1000 * 60));
@@ -85,13 +55,6 @@ function checkExpirationWarnings(count_down_ms) {
     if (showWarning) {
         $('#cm-warning-message').text(warningMessage);
         $('#cm-expiration-warning').show();
-        $('#cm-float-warning-message').text(warningMessage);
-        updateFloatingPanel('running', {
-            showWarning: true,
-            warningMessage: warningMessage,
-            countdown: formatCountDown(count_down_ms),
-            connectionInfo: $('#whale-challenge-lan-domain').text()
-        });
     } else {
         $('#cm-expiration-warning').hide();
     }
@@ -142,49 +105,13 @@ function loadInfo() {
         $('#whale-panel-starting').hide();
         $('#whale-panel-started').hide();
         $('#whale-panel-stopped').hide();
-        $('#whale-challenge-lan-domain').html('');
 
         // 1. IS THE INSTANCE FULLY RUNNING?
         if (response && response.connectionInfo) {
             window.cm_is_deploying = false; // Deployment finished, clear the flag
             $('#whale-panel-started').show();
             
-            // Update global persistent panel
-            if (window.cmGlobalPanel) {
-                const challengeCategory = CTFd._internal.challenge.data.category || 'Unknown';
-                window.cmGlobalPanel.updateInstance(challenge_id, challengeCategory, response);
-            }
-            
-            // --- FILTER SENSITIVE DATA ---
-            let rawLines = response.connectionInfo.split('\n');
-            let filteredLines = [];
-            
-            for (let line of rawLines) {
-                let lowerLine = line.toLowerCase();
-                
-                // Skip empty lines to fix spacing
-                if (line.trim() === '') continue; 
-                
-                // FILTER: Hide any lines containing 'username' or 'password' etc
-                if (lowerLine.includes('username') || lowerLine.includes('password')) {
-                    continue; 
-                }
-                
-                filteredLines.push(line);
-            }
-            
-            // Join the safe lines back together with HTML line breaks
-            let cleanInfo = filteredLines.join('<br>');
-            
-            $('#whale-challenge-lan-domain').css({
-                'color': 'var(--bs-body-color, inherit)', 
-                'background': 'transparent',
-                'padding': '0',
-                'font-family': 'inherit',
-                'font-size': '1rem'
-            }).html(cleanInfo);
-            
-            // --- TIMER LOGIC ---
+            // --- TIMER LOGIC (Calculate expireTime first!) ---
             var expireTime;
             if (response.until) {
                 expireTime = new Date(response.until);
@@ -195,18 +122,22 @@ function loadInfo() {
                 expireTime = new Date(createdAt.getTime() + ((challengeTimeout + extraTime) * 1000));
             }
             
+            // Update global persistent panel with calculated 'until' time
+            if (window.cmGlobalPanel) {
+                const challengeCategory = CTFd._internal.challenge.data.category || 'Unknown';
+                const instanceDataForPanel = {
+                    ...response,
+                    until: expireTime.toISOString()
+                };
+                window.cmGlobalPanel.updateInstance(challenge_id, challengeCategory, instanceDataForPanel);
+            }
+            
             var count_down = expireTime - new Date();
 
             if (count_down > 0) {
                 $('#whale-challenge-count-down').text(formatCountDown(count_down)); 
                 $('#cm-panel-until').show();
                 
-                // Send the safe, filtered text to the floating panel too
-                updateFloatingPanel('running', {
-                    countdown: formatCountDown(count_down),
-                    connectionInfo: filteredLines.join('\n') 
-                });
-
                 checkExpirationWarnings(count_down);
 
                 window.t = setInterval(() => {
@@ -216,7 +147,6 @@ function loadInfo() {
                         loadInfo(); 
                     } else {
                         $('#whale-challenge-count-down').text(formatCountDown(count_down));
-                        $('#cm-float-countdown').text(formatCountDown(count_down));
                         checkExpirationWarnings(count_down);
                     }
                 }, 1000);
@@ -228,17 +158,10 @@ function loadInfo() {
         } else if (window.cm_is_deploying || (response && (response.starting || response.locked === true || (response.created_at && !response.connectionInfo)))) {
             $('#whale-panel-starting').show();
             
-            let startMsg = response.starting || "Your instance is being deployed... Please wait. This usually takes 1-2 minutes.";
+            let startMsg = response.starting || "Your instance is being deployed... Please wait. This usually takes 1-5 minutes.";
             
             // Show a nice loading message
-            $('#whale-challenge-lan-domain').css({
-                'color': '#17a2b8', 
-                'font-weight': 'bold',
-                'font-family': 'inherit',
-                'background': 'transparent'
-            }).text(startMsg);
-            
-            updateFloatingPanel('starting');
+            $('#cm-starting-msg').css({'color': '#17a2b8'}).html(`<i class="fas fa-spinner fa-spin"></i> ` + startMsg);
             
             // Poll Azure again in 5 seconds
             setTimeout(loadInfo, 5000);
@@ -247,7 +170,6 @@ function loadInfo() {
         } else {
             window.cm_is_deploying = false; // Failsafe
             $('#whale-panel-stopped').show();
-            updateFloatingPanel('stopped');
         }
     });
 
@@ -373,7 +295,7 @@ CTFd._internal.challenge.boot = function() {
         }).catch(error => {
             reject(error);
         }).finally(() => {
-            $('#whale-button-boot').text("Launch an instance");
+            $('#whale-button-boot').text("Launch the challenge");
             $('#whale-button-boot').prop('disabled', false);
         });
     });
@@ -396,8 +318,7 @@ CTFd._internal.challenge.restart = function() {
         $('#whale-panel-stopped').hide();
         $('#whale-panel-started').hide();
         $('#whale-panel-starting').show();
-        $('#whale-challenge-lan-domain').css({'color': '#17a2b8', 'font-weight': 'bold'}).text("Provisioning new lab environment... Please wait.");
-        updateFloatingPanel('starting');
+        $('#cm-starting-msg').css({'color': '#17a2b8'}).html(`<i class="fas fa-spinner fa-spin"></i> Provisioning new lab environment... Please wait.`);
         
         // Wait 10 seconds for the backend to clear the state, then boot
         return new Promise(resolve => setTimeout(resolve, 10000)).then(() => {

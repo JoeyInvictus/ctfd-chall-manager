@@ -44,7 +44,7 @@
     }
     
     function shouldShowPanel() {
-        // Show panel on challenge pages
+        // Show panel ONLY on the main challenges page
         return window.location.pathname.includes('/challenges');
     }
     
@@ -96,16 +96,22 @@
         }
         
         const panelHTML = `
-        <div id="cm-global-floating-panel" style="position: fixed; bottom: 20px; right: 20px; z-index: 1050; width: 350px;">
-            <div class="card shadow-lg border-primary">
-                <div class="card-header bg-primary text-white" style="cursor: pointer;" onclick="window.cmGlobalPanel.toggle()">
-                    <h6 class="mb-0">
-                        <i class="fas fa-server"></i> Lab Instance
-                        <button type="button" class="close text-white" style="float: right;" onclick="window.cmGlobalPanel.close(event)">
-                            <span>&times;</span>
-                        </button>
-                        <i id="cm-global-toggle-icon" class="fas fa-chevron-up" style="float: right; margin-right: 10px;"></i>
-                    </h6>
+        <div id="cm-global-floating-panel" style="position: fixed; bottom: 20px; right: 20px; z-index: 1050; width: 320px;">
+            <div class="card shadow-lg" style="border: 2px solid #479abf;">
+                <div class="card-header text-white" style="cursor: pointer; background-color: #479abf; padding: 0.75rem 1rem;" onclick="window.cmGlobalPanel.toggle()">
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <i class="fas fa-server"></i>
+                            <span style="font-weight: 600; font-size: 0.95rem;">Lab Instance</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span id="cm-global-header-time" style="font-size: 0.9rem; font-weight: 500;"></span>
+                            <i id="cm-global-toggle-icon" class="fas fa-chevron-up"></i>
+                            <button type="button" class="close text-white" style="padding: 0; margin: 0;" onclick="window.cmGlobalPanel.close(event)">
+                                <span>&times;</span>
+                            </button>
+                        </div>
+                    </div>
                 </div>
                 <div id="cm-global-panel-body" class="card-body">
                     <div id="cm-global-loading" style="display: none;">
@@ -115,8 +121,7 @@
                     </div>
                     
                     <div id="cm-global-content">
-                        <!-- Content will be dynamically updated -->
-                    </div>
+                        </div>
                 </div>
             </div>
         </div>
@@ -152,7 +157,17 @@
         const contentDiv = document.getElementById('cm-global-content');
         if (!contentDiv) return;
         
-        const { challengeId, connectionInfo, until, since, category } = instanceData;
+        let { challengeId, connectionInfo, until, since, category, created_at, extra_time } = instanceData;
+        
+        // terraform-challenge-manager doesn't return 'until', calculate it from created_at + extra_time
+        if (!until && created_at && extra_time !== undefined) {
+            const createdDate = new Date(created_at);
+            const timeout = parseInt(extra_time) || 7200; // Default 2 hours
+            until = new Date(createdDate.getTime() + timeout * 1000).toISOString();
+            // Update instanceData for storage
+            instanceData.until = until;
+            setActiveInstance(instanceData);
+        }
         
         // Calculate time remaining
         let countdownHTML = '';
@@ -211,20 +226,26 @@
             }
         }
         
-        const connectionHTML = connectionInfo ? `
-            <div class="mb-2">
-                <small class="text-muted">Connection Info:</small>
-                <code style="font-size: 0.8rem; display: block; word-wrap: break-word; white-space: pre-wrap;">${connectionInfo}</code>
-            </div>
-        ` : '';
+        // Update header time
+        const headerTimeEl = document.getElementById('cm-global-header-time');
+        if (headerTimeEl && timeLeft) {
+            headerTimeEl.textContent = formatCountdown(timeLeft);
+            headerTimeEl.style.display = 'inline';
+        } else if (headerTimeEl) {
+            headerTimeEl.style.display = 'none';
+        }
         
         const html = `
             ${warningHTML}
             ${countdownHTML}
-            ${connectionHTML}
-            <div class="mb-2">
-                <small class="text-muted">Category: ${category || 'Unknown'}</small>
+            
+            <div class="mb-3">
+                <small class="text-muted font-weight-bold">Connection Info:</small>
+                <div class="p-2 bg-light rounded" style="font-family: monospace; font-size: 0.85rem; word-break: break-all; border: 1px solid #ddd;">
+                    ${connectionInfo ? connectionInfo.replace(/\n/g, '<br>') : 'Waiting for connection details...'}
+                </div>
             </div>
+
             <div class="btn-group btn-group-sm d-flex" role="group">
                 <button type="button" class="btn btn-warning flex-fill" onclick="window.cmGlobalPanel.renew()" title="Add more time">
                     <i class="fas fa-clock"></i> Renew
@@ -280,11 +301,16 @@
             
             if (diff <= 0) {
                 countdownEl.textContent = '00:00';
+                const headerTimeEl = document.getElementById('cm-global-header-time');
+                if (headerTimeEl) headerTimeEl.textContent = '00:00';
                 clearInterval(window.cmGlobalCountdownTimer);
                 // Refresh instance data
                 pollInstanceStatus();
             } else {
-                countdownEl.textContent = formatCountdown(diff);
+                const formatted = formatCountdown(diff);
+                countdownEl.textContent = formatted;
+                const headerTimeEl = document.getElementById('cm-global-header-time');
+                if (headerTimeEl) headerTimeEl.textContent = formatted;
             }
         }, 1000);
     }
@@ -337,7 +363,8 @@
         
         const { challengeId } = activeInstance;
         
-        fetch(`/api/v1/plugins/ctfd-chall-manager/instance?challengeId=${challengeId}`, {
+        const fetchFn = (window.CTFd && window.CTFd.fetch) ? window.CTFd.fetch : fetch;
+        fetchFn(`/api/v1/plugins/ctfd-chall-manager/instance?challengeId=${challengeId}`, {
             method: 'GET',
             credentials: 'same-origin',
             headers: {
@@ -417,7 +444,10 @@
             btn.disabled = true;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Renewing...';
             
-            fetch('/api/v1/plugins/ctfd-chall-manager/instance', {
+            // Use CTFd.fetch if available for proper CSRF handling, otherwise use regular fetch
+            const fetchFn = (window.CTFd && window.CTFd.fetch) ? window.CTFd.fetch : fetch;
+            
+            fetchFn('/api/v1/plugins/ctfd-chall-manager/instance', {
                 method: 'PATCH',
                 credentials: 'same-origin',
                 headers: {
@@ -475,8 +505,10 @@
             const activeInstance = getActiveInstance();
             if (!activeInstance) return;
             
+            const fetchFn = (window.CTFd && window.CTFd.fetch) ? window.CTFd.fetch : fetch;
+            
             // First destroy
-            fetch('/api/v1/plugins/ctfd-chall-manager/instance', {
+            fetchFn('/api/v1/plugins/ctfd-chall-manager/instance', {
                 method: 'DELETE',
                 credentials: 'same-origin',
                 headers: {
@@ -489,7 +521,7 @@
             .then(data => {
                 if (data.success) {
                     // Then boot
-                    return fetch('/api/v1/plugins/ctfd-chall-manager/instance', {
+                    return fetchFn('/api/v1/plugins/ctfd-chall-manager/instance', {
                         method: 'POST',
                         credentials: 'same-origin',
                         headers: {
@@ -545,7 +577,9 @@
             const activeInstance = getActiveInstance();
             if (!activeInstance) return;
             
-            fetch('/api/v1/plugins/ctfd-chall-manager/instance', {
+            const fetchFn = (window.CTFd && window.CTFd.fetch) ? window.CTFd.fetch : fetch;
+            
+            fetchFn('/api/v1/plugins/ctfd-chall-manager/instance', {
                 method: 'DELETE',
                 credentials: 'same-origin',
                 headers: {
@@ -581,8 +615,10 @@
                 console.error('Error destroying instance:', error);
             })
             .finally(() => {
-                btn.disabled = false;
-                btn.innerHTML = originalText;
+                if(btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                }
             });
         },
         

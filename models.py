@@ -504,8 +504,12 @@ class DynamicIaCValueChallenge(DynamicValueChallenge):
                 status="incorrect", message="Error occurred, contact admins!"
             )
 
-        # If the instance no longer exists
-        if data["since"] is None:
+        # If the instance no longer exists (empty dict or no instance indicator)
+        # terraform-challenge-manager uses 'created_at' instead of 'since'
+        # ctfer-io/chall-manager uses 'since'
+        has_instance = data and (data.get("since") is not None or data.get("created_at") is not None)
+        
+        if not has_instance:
             logger.debug(
                 "instance for source_id %s and challenge_id %s no longer exists",
                 source_id,
@@ -518,7 +522,7 @@ class DynamicIaCValueChallenge(DynamicValueChallenge):
             )
             return ChallengeResponse(
                 status="incorrect",
-                message="Expired (the instance must be running to submit)",
+                message="The instance must be running to submit",
             )
 
         flags = Flags.query.filter_by(challenge_id=challenge.id).all()

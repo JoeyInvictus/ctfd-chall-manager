@@ -24,7 +24,7 @@
             <div id="whale-panel-starting" class="card" style="width: 100%; display: none;">
                 <div class="card-body">
                     <h5 class="card-title">Instance Info</h5>
-                    <h6 class="card-subtitle mb-2 text-muted">
+                    <h6 id="cm-starting-msg" class="card-subtitle mb-2 text-muted">
                         <i class="fas fa-spinner fa-spin"></i> Instance is starting...
                     </h6>
                     <p class="card-text text-muted">Please wait while your lab environment is being provisioned. This may take a few minutes.</p>
@@ -42,10 +42,6 @@
                     <div id="cm-expiration-warning" class="alert alert-warning" role="alert" style="display: none;">
                         <i class="fas fa-exclamation-triangle"></i> <span id="cm-warning-message"></span>
                     </div>
-                    
-                    <div id="whale-challenge-lan-domain" data-test-id="cm-connectionInfo-id" style="white-space: pre-wrap; margin-top: 15px; margin-bottom: 20px; font-family: inherit;"></div>
-                    
-                    <p id="whale-challenge-user-access" class="card-text"></p>
                     
                     {% if not challenge.shared %}
                     {% if challenge.timeout %}
@@ -72,117 +68,4 @@
         
     </div>
     
-{% endblock %}
-
-{% block scripts %}
-{{ super() }}
-<script src="{{ url_for('plugins.ctfd_chall_manager.assets', filename='global-instance-panel.js') }}" defer></script>
-{% endblock %}
-
-{% block extra_modals %}
-<div id="cm-floating-panel" style="position: fixed; bottom: 20px; right: 20px; z-index: 1050; width: 350px; display: none;">
-    <div class="card shadow-lg border-primary">
-        <div class="card-header bg-primary text-white" style="cursor: pointer;" onclick="toggleFloatingPanel()">
-            <h6 class="mb-0">
-                <i class="fas fa-server"></i> Lab Instance
-                <button type="button" class="close text-white" style="float: right;" onclick="closeFloatingPanel()">
-                    <span>&times;</span>
-                </button>
-                <i id="cm-float-toggle-icon" class="fas fa-chevron-up" style="float: right; margin-right: 10px;"></i>
-            </h6>
-        </div>
-        <div id="cm-floating-panel-body" class="card-body">
-            <div id="cm-float-loading" style="display: none;">
-                <p class="text-center text-muted">
-                    <i class="fas fa-spinner fa-spin"></i> Loading...
-                </p>
-            </div>
-
-            <div id="cm-float-stopped" style="display: none;">
-                <p class="text-muted mb-2">No instance running</p>
-                {% if not challenge.shared %}
-                <button class="btn btn-primary btn-block" onclick="CTFd._internal.challenge.boot()">
-                    <i class="fas fa-play"></i> Launch Instance
-                </button>
-                {% endif %}
-            </div>
-
-            <div id="cm-float-starting" style="display: none;">
-                <p class="text-muted mb-2">
-                    <i class="fas fa-spinner fa-spin"></i> Starting instance...
-                </p>
-                <small class="text-muted">This may take a few minutes</small>
-            </div>
-
-            <div id="cm-float-running" style="display: none;">
-                <div id="cm-float-expiration-warning" class="alert alert-warning alert-sm p-2 mb-2" role="alert" style="display: none; font-size: 0.85rem;">
-                    <i class="fas fa-exclamation-triangle"></i> <span id="cm-float-warning-message"></span>
-                </div>
-                <p class="mb-1">
-                    <strong>Time Left:</strong> 
-                    <span id="cm-float-countdown" class="badge badge-info"></span>
-                </p>
-                <div class="mb-2">
-                    <small class="text-muted">Connection Info:</small>
-                    <code style="font-size: 0.8rem; display: block; word-wrap: break-word;" id="cm-float-connection"></code>
-                </div>
-                {% if not challenge.shared %}
-                <div class="btn-group btn-group-sm d-flex" role="group">
-                    {% if challenge.timeout %}
-                    <button type="button" class="btn btn-warning flex-fill" onclick="CTFd._internal.challenge.renew()" title="Add more time">
-                        <i class="fas fa-clock"></i> Renew
-                    </button>
-                    {% endif %}
-                    <button type="button" class="btn btn-info flex-fill" onclick="CTFd._internal.challenge.restart()" title="Restart instance">
-                        <i class="fas fa-redo"></i> Restart
-                    </button>
-                    <button type="button" class="btn btn-danger flex-fill" onclick="CTFd._internal.challenge.destroy()" title="Destroy instance">
-                        <i class="fas fa-trash"></i> Destroy
-                    </button>
-                </div>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-</div>
-
-<style>
-    #cm-floating-panel .card {
-        border-width: 2px;
-    }
-    #cm-floating-panel .card-header {
-        padding: 0.5rem 1rem;
-    }
-    #cm-floating-panel .card-body {
-        padding: 1rem;
-    }
-    #cm-floating-panel.minimized #cm-floating-panel-body {
-        display: none;
-    }
-    @media (max-width: 768px) {
-        #cm-floating-panel {
-            width: calc(100% - 40px);
-            bottom: 10px;
-            right: 10px;
-        }
-    }
-</style>
-
-<script>
-function toggleFloatingPanel() {
-    const panel = document.getElementById('cm-floating-panel');
-    const icon = document.getElementById('cm-float-toggle-icon');
-    panel.classList.toggle('minimized');
-    if (panel.classList.contains('minimized')) {
-        icon.className = 'fas fa-chevron-down';
-    } else {
-        icon.className = 'fas fa-chevron-up';
-    }
-}
-
-function closeFloatingPanel() {
-    event.stopPropagation();
-    document.getElementById('cm-floating-panel').style.display = 'none';
-}
-</script>
 {% endblock %}

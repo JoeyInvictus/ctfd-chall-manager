@@ -6,7 +6,7 @@ and all Admins pages endpoints.
 import os
 
 import requests
-from CTFd.plugins import register_plugin_assets_directory, register_user_page_menu_bar
+from CTFd.plugins import register_plugin_assets_directory, register_user_page_menu_bar, register_plugin_script
 from CTFd.plugins.challenges import CHALLENGE_CLASSES
 from .api import register_api_endpoints
 from .models import (
@@ -59,6 +59,9 @@ def load(app):  # pylint: disable=too-many-statements
         endpoint="plugins.ctfd_chall_manager.assets",
     )
     logger.info("Plugin assets directory registered.")
+
+    # INJECT THE GLOBAL PANEL SCRIPT ON ALL PAGES
+    register_plugin_script(f"/plugins/{plugin_name}/assets/global-instance-panel.js")
 
     # apply migration scripts
     upgrade()
@@ -296,13 +299,6 @@ def load(app):  # pylint: disable=too-many-statements
     app.register_blueprint(page_blueprint)
     logger.info("Blueprint registered.")
     
-    # Inject global instance panel script on all pages
-    @app.context_processor
-    def inject_global_panel_script():
-        """Inject the global instance panel script into all pages"""
-        script_url = f"/plugins/{plugin_name}/assets/global-instance-panel.js"
-        return dict(cm_global_panel_script=script_url)
-
     # https://github.com/ctfer-io/ctfd-chall-manager/issues/226
     instances_panel_enabled = (
         os.getenv("PLUGIN_SETTINGS_CM_UI_HIDE_INSTANCES_PANEL", "false").lower()
