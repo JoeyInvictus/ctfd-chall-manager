@@ -2,12 +2,14 @@
 This module register API endpoints for the plugin in CTFd (/api/v1).
 """
 
+from flask_restx import Namespace
+
 from CTFd.api import CTFd_API_v1
+
 from ..api.admin.instance import AdminInstance
 from ..api.instance import UserInstance
 from ..api.mana import UserMana
 from ..utils.logger import configure_logger
-from flask_restx import Namespace
 
 # Configure logger for this module
 logger = configure_logger(__name__)

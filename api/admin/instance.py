@@ -3,9 +3,11 @@ This module describes the AdminInstance API endpoints of the plugin:
 Route: /api/v1/plugins/ctfd-chall-manager/admin/instance.
 """
 
-from ...utils.chall_manager_error import (
-    ChallManagerException,
-)
+from flask_restx import Resource, abort
+
+from CTFd.utils.decorators import admins_only
+
+from ...utils.chall_manager_error import ChallManagerException
 from ...utils.helpers import retrieve_all_ids
 from ...utils.instance_manager import (
     create_instance,
@@ -15,8 +17,6 @@ from ...utils.instance_manager import (
 )
 from ...utils.logger import configure_logger
 from ...utils.mana_lock import load_or_store
-from CTFd.utils.decorators import admins_only
-from flask_restx import Resource, abort
 
 # Configure logger for this module
 logger = configure_logger(__name__)

@@ -5,11 +5,11 @@ This module contains all functions to use Chall-Manager ChallengeStore group.
 import json
 
 import requests
-from .chall_manager_error import (
-    ChallManagerException,
-)
-from .logger import configure_logger
+
 from CTFd.utils import get_config
+
+from .chall_manager_error import ChallManagerException
+from .logger import configure_logger
 
 logger = configure_logger(__name__)
 CM_API_TIMEOUT = get_config("chall-manager:chall-manager_api_timeout")

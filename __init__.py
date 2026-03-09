@@ -6,31 +6,29 @@ and all Admins pages endpoints.
 import os
 
 import requests
-from CTFd.plugins import register_plugin_assets_directory, register_user_page_menu_bar, register_plugin_script
+from flask import Blueprint, redirect, render_template, request, url_for
+
+from CTFd.plugins import (
+    register_plugin_assets_directory,
+    register_plugin_script,
+    register_user_page_menu_bar,
+)
 from CTFd.plugins.challenges import CHALLENGE_CLASSES
-from .api import register_api_endpoints
-from .models import (
-    DynamicIaCChallenge,
-    DynamicIaCValueChallenge,
-)
-from .utils.chall_manager_error import (
-    ChallManagerException,
-)
-from .utils.challenge_store import query_challenges
-from .utils.helpers import (
-    calculate_all_mana_used,
-    calculate_mana_used,
-)
-from .utils.instance_manager import query_instance
-from .utils.logger import configure_logger
-from .utils.setup import setup_default_configs
 from CTFd.plugins.migrations import upgrade
 from CTFd.utils import get_config, set_config
 from CTFd.utils import user as current_user
 from CTFd.utils.challenges import get_all_challenges
 from CTFd.utils.config import is_teams_mode
 from CTFd.utils.decorators import admins_only, authed_only
-from flask import Blueprint, redirect, render_template, request, url_for
+
+from .api import register_api_endpoints
+from .models import DynamicIaCChallenge, DynamicIaCValueChallenge
+from .utils.chall_manager_error import ChallManagerException
+from .utils.challenge_store import query_challenges
+from .utils.helpers import calculate_all_mana_used, calculate_mana_used
+from .utils.instance_manager import query_instance
+from .utils.logger import configure_logger
+from .utils.setup import setup_default_configs
 
 # Configure logger for this module
 logger = configure_logger(__name__)

@@ -3,17 +3,17 @@ This module describes the UserMana API endpoint of the plugin:
 Route: /api/v1/plugins/ctfd-chall-manager/mana
 """
 
-from ..utils.chall_manager_error import (
-    ChallManagerException,
-)
-from ..utils.helpers import calculate_mana_used
-from ..utils.logger import configure_logger
-from ..utils.mana_lock import load_or_store
+from flask_restx import Resource, abort
+
 from CTFd.utils import get_config
 from CTFd.utils import user as current_user
 from CTFd.utils.config import is_teams_mode
 from CTFd.utils.decorators import authed_only
-from flask_restx import Resource, abort
+
+from ..utils.chall_manager_error import ChallManagerException
+from ..utils.helpers import calculate_mana_used
+from ..utils.logger import configure_logger
+from ..utils.mana_lock import load_or_store
 
 # Configure logger for this module
 logger = configure_logger(__name__)

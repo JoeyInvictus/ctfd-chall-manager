@@ -5,8 +5,9 @@ This module configure the CTFd-chall-manager default settings.
 import os
 from urllib.parse import urlparse
 
-from .logger import configure_logger
 from CTFd.utils import set_config
+
+from .logger import configure_logger
 
 # Configure logger for this module
 logger = configure_logger(__name__)

@@ -3,19 +3,19 @@
 This module defines the helpers functions.
 """
 
-from CTFd.models import db  # type: ignore
-from ..models import DynamicIaCChallenge
-from .chall_manager_error import (
-    ChallManagerException,
-)
-from .challenge_store import query_challenges
-from .instance_manager import query_instance
-from .logger import configure_logger
+from flask import request
+from sqlalchemy import func
+
+from CTFd.models import db
 from CTFd.utils import get_config
 from CTFd.utils import user as current_user
 from CTFd.utils.config import is_teams_mode
-from flask import request
-from sqlalchemy import func
+
+from ..models import DynamicIaCChallenge
+from .chall_manager_error import ChallManagerException
+from .challenge_store import query_challenges
+from .instance_manager import query_instance
+from .logger import configure_logger
 
 logger = configure_logger(__name__)
 

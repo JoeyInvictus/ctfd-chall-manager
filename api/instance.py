@@ -3,10 +3,15 @@ This module describes the UserInstance API endpoint of the plugin:
 Route: /api/v1/plugins/ctfd-chall-manager/instance.
 """
 
+from flask import request
+from flask_restx import Resource, abort
+
+from CTFd.utils import user as current_user
+from CTFd.utils.config import is_teams_mode
+from CTFd.utils.decorators import authed_only
+
 from ..models import DynamicIaCChallenge
-from ..utils.chall_manager_error import (
-    ChallManagerException,
-)
+from ..utils.chall_manager_error import ChallManagerException
 from ..utils.decorators import challenge_visible
 from ..utils.helpers import (
     check_source_can_create_instance,
@@ -21,11 +26,6 @@ from ..utils.instance_manager import (
 )
 from ..utils.logger import configure_logger
 from ..utils.mana_lock import load_or_store
-from CTFd.utils import user as current_user
-from CTFd.utils.config import is_teams_mode
-from CTFd.utils.decorators import authed_only
-from flask import request
-from flask_restx import Resource, abort
 
 # Configure logger for this module
 logger = configure_logger(__name__)
