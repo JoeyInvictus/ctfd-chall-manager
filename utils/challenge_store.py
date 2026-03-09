@@ -44,6 +44,7 @@ def query_challenges() -> list | ChallManagerException:
     logger.debug("querying challenges from %s", url)
 
     try:
+<<<<<<< HEAD
         resp = s.get(url, headers=None, timeout=CM_API_TIMEOUT)
         resp.raise_for_status()
         res = resp.json()
@@ -51,6 +52,12 @@ def query_challenges() -> list | ChallManagerException:
         # where data is an array of all challenges
         result = res.get("data", [])
         logger.debug("successfully queried challenges: %s", result)
+=======
+        req = requests.get(url, headers=None, timeout=10) 
+        result = req.json()
+        result = result['data']
+        logger.debug(f"Successfully queried challenges: {result}")
+>>>>>>> origin/main
     except Exception as e:
         logger.error("error querying challenges: %s", e)
         raise ChallManagerException(message="error querying challenges") from e
@@ -75,7 +82,26 @@ def create_challenge(
     headers = {"Content-Type": "application/json"}
     payload = kwargs
 
+<<<<<<< HEAD
     logger.debug("creating challenge with id=%s", challenge_id)
+=======
+    headers = {
+        "Content-Type": "application/json"
+    }
+
+    payload = {}
+
+    if len(args) != 0:
+        if type(args[0]) is not dict:
+            logger.error(f"invalid argument, got {args[0]} for type {type(args[0])}, dict is expected")
+            raise Exception(f"invalid argument, got {args[0]} for type {type(args[0])}, dict is expected")
+
+        payload = args[0]
+
+    logger.debug(f"Creating challenge with id={id}")
+
+    payload["zip64"] = scenario
+>>>>>>> origin/main
 
     try:
         r = requests.post(
@@ -83,6 +109,7 @@ def create_challenge(
         )
         logger.debug("received response: %s %s", r.status_code, r.text)
     except Exception as e:
+<<<<<<< HEAD
         logger.error("error creating challenge: %s", e)
         raise ChallManagerException(
             message="an exception occurred while communicating with CM"
@@ -94,14 +121,29 @@ def create_challenge(
             message=f"Chall-manager returned an error: {json.loads(r.text)}"
         )
 
+=======
+        logger.error(f"Error creating challenge: {e}")
+        raise Exception(f"An exception occurred while communicating with CM: {e}")
+    else:
+        if r.status_code != 201:
+            logger.error(f"Error from chall-manager: {json.loads(r.text)}")
+            raise Exception(f"Chall-manager returned an error: {json.loads(r.text)['message']}")
+    
+>>>>>>> origin/main
     return r
 
 
 def delete_challenge(challenge_id: int) -> requests.Response | ChallManagerException:
     """
     Delete challenge and its instances running.
+<<<<<<< HEAD
 
     :param challenge_id* (int): 1
+=======
+    Removed any dependant instances
+    
+    :param id* (int): 1
+>>>>>>> origin/main
 
     :return Response: of chall-manager API
     """
@@ -136,6 +178,7 @@ def get_challenge(challenge_id: int) -> requests.Response | ChallManagerExceptio
         r = requests.get(url, timeout=CM_API_TIMEOUT)
         logger.debug("recieved response: %s %s", r.status_code, r.text)
     except Exception as e:
+<<<<<<< HEAD
         logger.error("error getting challenge: %s", e)
         raise ChallManagerException(
             message="an exception occurred while communicating with CM"
@@ -155,6 +198,18 @@ def get_challenge(challenge_id: int) -> requests.Response | ChallManagerExceptio
                 message=f"Chall-manager returned status {r.status_code}"
             )
 
+=======
+        logger.error(f"Error getting challenge: {e}")
+        raise Exception(f"An exception occurred while communicating with CM: {e}")
+    else:
+        if r.status_code == 404:
+            logger.info(f"Chall-manager could not find the challenge")
+            raise Exception(f"Chall-manager could not find a challenge for this id")
+        elif r.status_code != 200:
+            logger.error(f"Error from chall-manager: {json.loads(r.text)}")
+            raise Exception(f"Chall-manager returned an error: {json.loads(r.text)['message']}")
+ 
+>>>>>>> origin/main
     return r
 
 
@@ -182,9 +237,24 @@ def update_challenge(
         if k in payload
     )
 
+<<<<<<< HEAD
     logger.debug(
         "updating challenge %s with updateMask %s", challenge_id, payload["updateMask"]
     )
+=======
+    if len(args) != 0:
+        if type(args[0]) is not dict:
+            logger.error("Invalid arguments provided for updating challenge")
+            raise Exception(f"Error deleting challenge: {e}")
+
+        payload = args[0]
+
+    logger.debug(f"Updating challenge with id={id}")
+    
+    # attempt to set default payload if not provided
+    if "timeout" not in payload:
+        payload['timeout'] = 3600
+>>>>>>> origin/main
 
     try:
         r = requests.put(
@@ -192,6 +262,7 @@ def update_challenge(
         )
         logger.debug("received response: %s %s", r.status_code, r.text)
     except Exception as e:
+<<<<<<< HEAD
         logger.error("error updating challenge: %s", e)
         raise ChallManagerException(message="error while communicating with CM") from e
 
@@ -201,4 +272,12 @@ def update_challenge(
             message=f"Chall-manager returned an error: {json.loads(r.text)}"
         )
 
+=======
+        logger.error(f"Error updating challenge: {e}")
+        raise Exception(f"An exception occurred while communicating with CM: {e}")
+    else:
+        if r.status_code != 204:
+            logger.error(f"Error from chall-manager: {json.loads(r.text)}")
+            raise Exception(f"Chall-manager returned an error: {json.loads(r.text)['message']}")
+>>>>>>> origin/main
     return r
