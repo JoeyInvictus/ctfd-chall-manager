@@ -205,14 +205,15 @@ def update_instance(challenge_id: int, source_id: int) -> dict | ChallManagerExc
         logger.error("chall-manager returned an error: %s", error_msg)
         raise ChallManagerException(message=error_msg)
 
-    # update informations for the next GET request using the new created_at key
+    # Invalidate cache to force fresh data on next GET request
+    # This ensures the updated 'until' time is fetched immediately
+    cached = cache.get(cache_key)
+    if cached:
+        logger.debug("invalidate cache for %s to fetch fresh data", cache_key)
+        cache.delete(cache_key)
+
     result = r.json()
     instance_data = result.get("data", result)
-    
-    if "created_at" in instance_data:
-        logger.debug("store result in cache for better performances")
-        cache.set(cache_key, instance_data, timeout=60)
-
     return instance_data
 
 

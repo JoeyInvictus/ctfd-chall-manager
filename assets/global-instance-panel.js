@@ -96,54 +96,58 @@
         }
         
         const panelHTML = `
-        <div id="cm-global-floating-panel" style="position: fixed; bottom: 20px; right: 20px; z-index: 1050; width: 320px;">
-            <div class="card shadow-lg" style="border: 2px solid #479abf;">
-                <div class="card-header text-white" style="cursor: pointer; background-color: #479abf; padding: 0.75rem 1rem;" onclick="window.cmGlobalPanel.toggle()">
-                    <div style="display: flex; align-items: center; justify-content: space-between;">
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <i class="fas fa-server"></i>
-                            <span style="font-weight: 600; font-size: 0.95rem;">Lab Instance</span>
+        <div id="cm-global-floating-panel" style="position: fixed; bottom: 20px; right: 20px; z-index: 1050; width: 340px;">
+            <div class="card shadow-lg" style="background-color: #1e1e1e; border: 1px solid #333; border-radius: 10px; overflow: hidden; box-shadow: 0 8px 16px rgba(0,0,0,0.5) !important;">
+                <div class="card-header" style="background-color: #161616; border-bottom: 1px solid #2a2a2a; color: #fff; cursor: pointer; padding: 12px 16px;" onclick="window.cmGlobalPanel.toggle()">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex align-items-center" style="font-weight: 700; font-size: 15px;">
+                            <i class="fas fa-server mr-2 text-primary"></i>
+                            Lab Instance
                         </div>
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <span id="cm-global-header-time" style="font-size: 0.9rem; font-weight: 500;"></span>
-                            <i id="cm-global-toggle-icon" class="fas fa-chevron-up"></i>
-                            <button type="button" class="close text-white" style="padding: 0; margin: 0;" onclick="window.cmGlobalPanel.close(event)">
-                                <span>&times;</span>
+                        <div class="d-flex align-items-center">
+                            <span id="cm-global-header-time" class="mr-3 d-none" style="font-family: monospace; font-weight: bold; color: #ebb850; font-size: 14px;"></span>
+                            <i id="cm-global-toggle-icon" class="fas fa-chevron-up mr-2" style="color: #888;"></i>
+                            <button type="button" class="close ml-1" onclick="window.cmGlobalPanel.close(event)" aria-label="Close" style="color: #aaa; text-shadow: none; opacity: 1;">
+                                <span aria-hidden="true">&times;</span>
                             </button>
                         </div>
                     </div>
                 </div>
-                <div id="cm-global-panel-body" class="card-body">
-                    <div id="cm-global-loading" style="display: none;">
-                        <p class="text-center text-muted">
+                <div id="cm-global-panel-body" class="card-body" style="padding: 16px; color: #efefef;">
+                    <div id="cm-global-loading" class="d-none">
+                        <p class="text-center mb-0" style="color: #888;">
                             <i class="fas fa-spinner fa-spin"></i> Loading...
                         </p>
                     </div>
                     
-                    <div id="cm-global-content">
-                        </div>
+                    <div id="cm-global-content"></div>
                 </div>
             </div>
         </div>
         
         <style>
-            #cm-global-floating-panel .card {
-                border-width: 2px;
-            }
-            #cm-global-floating-panel .card-header {
-                padding: 0.5rem 1rem;
-            }
-            #cm-global-floating-panel .card-body {
-                padding: 1rem;
-            }
             #cm-global-floating-panel.minimized #cm-global-panel-body {
                 display: none;
             }
+            .floating-btn-lab {
+                border: none;
+                border-radius: 6px;
+                font-weight: 700;
+                transition: transform 0.1s, opacity 0.2s;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 6px;
+                padding: 8px 10px;
+            }
+            .floating-btn-lab:hover { opacity: 0.9; transform: translateY(-1px); }
+            .floating-btn-lab:active { transform: translateY(0); }
             @media (max-width: 768px) {
                 #cm-global-floating-panel {
-                    width: calc(100% - 40px);
-                    bottom: 10px;
-                    right: 10px;
+                    width: calc(100% - 40px) !important;
+                    bottom: 10px !important;
+                    right: 10px !important;
                 }
             }
         </style>
@@ -157,17 +161,7 @@
         const contentDiv = document.getElementById('cm-global-content');
         if (!contentDiv) return;
         
-        let { challengeId, connectionInfo, until, since, category, created_at, extra_time } = instanceData;
-        
-        // terraform-challenge-manager doesn't return 'until', calculate it from created_at + extra_time
-        if (!until && created_at && extra_time !== undefined) {
-            const createdDate = new Date(created_at);
-            const timeout = parseInt(extra_time) || 7200; // Default 2 hours
-            until = new Date(createdDate.getTime() + timeout * 1000).toISOString();
-            // Update instanceData for storage
-            instanceData.until = until;
-            setActiveInstance(instanceData);
-        }
+        let { challengeId, connectionInfo, until, since, category, challengeName } = instanceData;
         
         // Calculate time remaining
         let countdownHTML = '';
@@ -182,10 +176,10 @@
             if (diff > 0) {
                 timeLeft = diff;
                 countdownHTML = `
-                    <p class="mb-1">
-                        <strong>Time Left:</strong> 
-                        <span id="cm-global-countdown" class="badge badge-info">${formatCountdown(diff)}</span>
-                    </p>
+                    <div class="mb-3">
+                        <strong class="d-block mb-1" style="color: #888; font-size: 12px; text-transform: uppercase;">Time Remaining:</strong>
+                        <div id="cm-global-countdown" style="font-family: monospace; font-size: 1.2rem; font-weight: bold; color: #fff;">${formatCountdown(diff)}</div>
+                    </div>
                 `;
                 
                 // Check for expiration warnings
@@ -218,8 +212,8 @@
                 
                 if (diff <= FIFTEEN_MIN) {
                     warningHTML = `
-                        <div class="alert alert-warning alert-sm p-2 mb-2" role="alert" style="font-size: 0.85rem;">
-                            <i class="fas fa-exclamation-triangle"></i> ${warningMessage}
+                        <div class="alert alert-warning py-2 px-2 mb-3 small" role="alert" style="background-color: rgba(235, 184, 80, 0.1); border: 1px solid #ebb850; color: #ebb850;">
+                            <i class="fas fa-exclamation-triangle mr-1"></i> ${warningMessage}
                         </div>
                     `;
                 }
@@ -230,30 +224,36 @@
         const headerTimeEl = document.getElementById('cm-global-header-time');
         if (headerTimeEl && timeLeft) {
             headerTimeEl.textContent = formatCountdown(timeLeft);
-            headerTimeEl.style.display = 'inline';
+            headerTimeEl.classList.remove('d-none');
         } else if (headerTimeEl) {
-            headerTimeEl.style.display = 'none';
+            headerTimeEl.classList.add('d-none');
+        }
+        
+        let categoryHTML = '';
+        if (challengeName) {
+            categoryHTML = `
+                <div class="mb-3">
+                    <strong class="d-block mb-1" style="color: #888; font-size: 12px; text-transform: uppercase;">Lab:</strong> 
+                    <div style="font-size: 13px; font-weight: 500; color: #fff; word-wrap: break-word; overflow-wrap: break-word; white-space: normal; line-height: 1.4;">
+                        ${challengeName}
+                    </div>
+                </div>
+            `;
         }
         
         const html = `
+            ${categoryHTML}
             ${warningHTML}
             ${countdownHTML}
             
-            <div class="mb-3">
-                <small class="text-muted font-weight-bold">Connection Info:</small>
-                <div class="p-2 bg-light rounded" style="font-family: monospace; font-size: 0.85rem; word-break: break-all; border: 1px solid #ddd;">
-                    ${connectionInfo ? connectionInfo.replace(/\n/g, '<br>') : 'Waiting for connection details...'}
-                </div>
-            </div>
-
-            <div class="btn-group btn-group-sm d-flex" role="group">
-                <button type="button" class="btn btn-warning flex-fill" onclick="window.cmGlobalPanel.renew()" title="Add more time">
+            <div class="d-flex mt-3" style="gap: 10px;">
+                <button type="button" class="flex-fill floating-btn-lab" style="background-color:#ebb850; color: #000;" onclick="window.cmGlobalPanel.renew()" title="Add more time">
                     <i class="fas fa-clock"></i> Renew
                 </button>
-                <button type="button" class="btn btn-info flex-fill" onclick="window.cmGlobalPanel.restart()" title="Restart instance">
+                <button type="button" class="flex-fill floating-btn-lab" style="background-color:#479abf; color: #fff;" onclick="window.cmGlobalPanel.restart()" title="Restart instance">
                     <i class="fas fa-redo"></i> Restart
                 </button>
-                <button type="button" class="btn btn-danger flex-fill" onclick="window.cmGlobalPanel.destroy()" title="Destroy instance">
+                <button type="button" class="flex-fill floating-btn-lab" style="background-color:#b43c2c; color: #fff;" onclick="window.cmGlobalPanel.destroy()" title="Destroy instance">
                     <i class="fas fa-trash"></i> Destroy
                 </button>
             </div>
@@ -461,8 +461,23 @@
                 if (data.success) {
                     // Reset warning flags
                     setWarningsShown({ fifteen: false, ten: false, five: false });
-                    // Refresh instance data
+                    
+                    // If response includes updated instance data, use it immediately
+                    if (data.data && data.data.until) {
+                        const activeInstance = getActiveInstance();
+                        if (activeInstance) {
+                            activeInstance.until = data.data.until;
+                            if (data.data.connectionInfo) {
+                                activeInstance.connectionInfo = data.data.connectionInfo;
+                            }
+                            setActiveInstance(activeInstance);
+                            updatePanelContent(activeInstance);
+                        }
+                    }
+                    
+                    // Also poll to ensure we're in sync
                     pollInstanceStatus();
+                    
                     if (window.CTFd && window.CTFd._functions && window.CTFd._functions.events) {
                         CTFd._functions.events.eventAlert({
                             title: "Success",
@@ -537,7 +552,19 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
+                    // Update immediately if response includes instance data
+                    if (data.data) {
+                        const activeInstance = getActiveInstance();
+                        if (activeInstance) {
+                            Object.assign(activeInstance, data.data);
+                            setActiveInstance(activeInstance);
+                            updatePanelContent(activeInstance);
+                        }
+                    }
+                    
+                    // Also poll to ensure we're in sync
                     pollInstanceStatus();
+                    
                     if (window.CTFd && window.CTFd._functions && window.CTFd._functions.events) {
                         CTFd._functions.events.eventAlert({
                             title: "Success",
@@ -565,7 +592,7 @@
         },
         
         destroy: function() {
-            if (!confirm('Are you sure you want to destroy your instance? All progress will be lost.')) {
+            if (!confirm('Are you sure you want to destroy your instance? Your Azure lab environment will be destroyed.')) {
                 return;
             }
             
@@ -627,6 +654,7 @@
             const data = {
                 challengeId: challengeId,
                 category: category,
+                challengeName: instanceData.challengeName || 'Lab Instance',
                 connectionInfo: instanceData.connectionInfo,
                 until: instanceData.until,
                 since: instanceData.since

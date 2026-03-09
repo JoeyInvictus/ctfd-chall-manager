@@ -14,6 +14,45 @@ CTFd._internal.challenge.postRender = function () {
 
 if (window.$ === undefined) window.$ = CTFd.lib.$;
 
+// Parse connection info to extract key details
+function parseConnectionInfo(connectionInfo) {
+    if (!connectionInfo) return null;
+    
+    const lines = connectionInfo.split('\n');
+    const parsed = {
+        url: null,
+        resourceGroup: null,
+        username: null,
+        workspace: null,
+        fullText: connectionInfo
+    };
+    
+    for (const line of lines) {
+        // Extract URL
+        const urlMatch = line.match(/(https?:\/\/[^\s]+)/);
+        if (urlMatch) {
+            parsed.url = urlMatch[1];
+        }
+        
+        // Extract Resource Group Name
+        if (line.includes('Resource Group Name:')) {
+            parsed.resourceGroup = line.split(':')[1].trim();
+        }
+        
+        // Extract Student Username
+        if (line.includes('Student Username:')) {
+            parsed.username = line.split(':')[1].trim();
+        }
+        
+        // Extract Workspace Name
+        if (line.includes('Workspace Name:')) {
+            parsed.workspace = line.split(':')[1].trim();
+        }
+    }
+    
+    return parsed;
+}
+
 // Track warning states to avoid duplicate notifications
 window.cm_warning_shown = {
     fifteen: false,
@@ -111,6 +150,29 @@ function loadInfo() {
             window.cm_is_deploying = false; // Deployment finished, clear the flag
             $('#whale-panel-started').show();
             
+            // Parse and display connection details
+            const connDetails = parseConnectionInfo(response.connectionInfo);
+            if (connDetails) {
+                $('#cm-connection-details').show();
+                
+                if (connDetails.url) {
+                    $('#cm-azure-link').attr('href', connDetails.url).text(connDetails.url);
+                    $('#cm-azure-url').show();
+                }
+                if (connDetails.resourceGroup) {
+                    $('#cm-rg-name').text(connDetails.resourceGroup);
+                    $('#cm-resource-group').show();
+                }
+                if (connDetails.workspace) {
+                    $('#cm-workspace-name').text(connDetails.workspace);
+                    $('#cm-workspace').show();
+                }
+                if (connDetails.username) {
+                    $('#cm-user-name').text(connDetails.username);
+                    $('#cm-username').show();
+                }
+            }
+            
             // --- TIMER LOGIC (Calculate expireTime first!) ---
             var expireTime;
             if (response.until) {
@@ -124,10 +186,11 @@ function loadInfo() {
             
             // Update global persistent panel with calculated 'until' time
             if (window.cmGlobalPanel) {
-                const challengeCategory = CTFd._internal.challenge.data.category || 'Unknown';
+                const challengeCategory = CTFd._internal.challenge.data.category || 'Lab';
                 const instanceDataForPanel = {
                     ...response,
-                    until: expireTime.toISOString()
+                    until: expireTime.toISOString(),
+                    challengeName: challengeCategory  // Use category instead of name
                 };
                 window.cmGlobalPanel.updateInstance(challenge_id, challengeCategory, instanceDataForPanel);
             }
@@ -287,7 +350,7 @@ CTFd._internal.challenge.boot = function() {
                 // Lock UI in Deploying state immediately
                 window.cm_is_deploying = true;
                 loadInfo();
-                CTFd._functions.events.eventAlert({ title: "Success", html: "Your instance is being deployed!" });
+                // Don't show popup - the instance info panel already shows deployment status
                 resolve();
             } else {
                 CTFd._functions.events.eventAlert({ title: "Fail", html: response.message });
