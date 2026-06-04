@@ -15,14 +15,7 @@ from .utils.logger import configure_logger
 from .utils.chall_manager_error import ChallManagerException
 from .decorators import challenge_visible
 
-import traceback
-import logging
 logger = configure_logger(__name__)
-logger.setLevel(logging.DEBUG)
-
-handler = logging.StreamHandler()
-handler.setLevel(logging.DEBUG)
-logger.addHandler(handler)
 
 admin_namespace = Namespace("ctfd-chall-manager-admin")
 user_namespace = Namespace("ctfd-chall-manager-user")
@@ -173,77 +166,51 @@ class UserInstance(Resource):
         if challenge.shared:
             sourceId = 0
 
-        # Initialize debug info for API response
-        debug_info = []
-        
         try:
             r = get_instance(challengeId, sourceId)
             result = json.loads(r.text)
-            debug_info.append(f"Raw result from challenge manager: {result}")
         except Exception as e:
-            debug_info.append(f"Error getting instance: {e}")
+            logger.error(f"Error getting instance: {e}")
             return {'success': False, 'data': {
                 'message': f"Error while communicating with CM: {e}",
-                'debug': debug_info
             }}
 
         data = {}
         try:
             if result.get('status') == 'success' and 'data' in result and result['data']:
-                debug_info.append(f"Challenge manager returned success with data")
                 instance_data = result['data']
-                debug_info.append(f"Instance data: {instance_data}")
 
                 if 'connectionInfo' in instance_data:
                     data['connectionInfo'] = instance_data['connectionInfo']
-                    debug_info.append(f"Added connectionInfo: {data['connectionInfo']}")
 
                 if 'created_at' in instance_data:
-                    debug_info.append(f"Found created_at: {instance_data['created_at']}")
                     try:
                         created_at = isoparse(instance_data['created_at'])
-                        debug_info.append(f"Parsed created_at: {created_at}")
                         data['since'] = created_at.isoformat()
-                        debug_info.append(f"Set since: {data['since']}")
 
                         challenge_timeout = 3600
                         if hasattr(challenge, 'alive') and challenge.alive:
                             challenge_timeout = challenge.alive
-                            debug_info.append(f"Using challenge.alive: {challenge_timeout}")
                         elif hasattr(challenge, 'timeout') and challenge.timeout:
                             challenge_timeout = challenge.timeout
-                            debug_info.append(f"Using challenge.timeout: {challenge_timeout}")
-                        else:
-                            debug_info.append(f"Using default timeout: {challenge_timeout}")
 
                         extra_time = int(instance_data.get('extra_time', 0))
-                        debug_info.append(f"Extra time from instance: {extra_time}")
-
-                        total_time = challenge_timeout + extra_time
-                        debug_info.append(f"Total time: {total_time} seconds")
-
-                        until_time = created_at + timedelta(seconds=total_time)
+                        until_time = created_at + timedelta(seconds=challenge_timeout + extra_time)
                         data['until'] = until_time.isoformat()
-                        debug_info.append(f"Set until: {data['until']}")
                     except Exception as e:
-                        debug_info.append(f"Error parsing created_at: {e}")
-                        debug_info.append(f"Full traceback: {traceback.format_exc()}")
+                        logger.error(f"Error parsing created_at: {e}")
                         data['since'] = None
                         data['until'] = None
 
                 if instance_data.get('connectionInfo') is None:
                     data['starting'] = "starting challenge..."
-                    debug_info.append(f"No connectionInfo, set starting message")
             else:
-                debug_info.append(f"Challenge manager returned error or no data: {result}")
                 data = {}
         except Exception as e:
-            debug_info.append(f"Error processing connection info: {e}")
-            debug_info.append(f"Full traceback: {traceback.format_exc()}")
+            logger.error(f"Error processing connection info: {e}")
             data.setdefault('connectionInfo', None)
 
-        debug_info.append(f"Final data being returned: {data}")
-        return {'success': True, 'data': data, 'debug': debug_info}
+        return {'success': True, 'data': data}
 
     @staticmethod
     @authed_only
@@ -353,7 +320,7 @@ class UserInstance(Resource):
             r = update_instance(challengeId, sourceId)
             logger.info(f"Instance for challengeId: {challengeId}, sourceId: {sourceId} updated successfully.")
         except ChallManagerException as e:
-            return {'success': False, 'data': {\
+            return {'success': False, 'data': {
                 'message': f"{e.message}",
             }}
 

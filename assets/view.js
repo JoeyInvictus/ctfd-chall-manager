@@ -82,12 +82,6 @@ function loadInfo() {
             var now = new Date();
             var until = new Date(response.until);
 
-            console.log("=== DEBUG: Current time:", now);
-            console.log("=== DEBUG: Until time:", until);
-            
-            console.log(now);
-            console.log(until);
-            
             var count_down = until - now;
             console.log(count_down);
             if (count_down > 0) {   // if the instance is not expired         
