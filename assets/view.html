@@ -2,58 +2,186 @@
 
 {% block description %}
 {{ challenge.html }}
-    <div class="row text-center pb-3">
-        <div id="whale-panel" style="width: 100%;">
-            <div id="cm-panel-loading" class="card" style="width: 100%;">
-                <h5 class="card-title">Instance Info</h5>
-                    <h6 id="cm-panel-mana-cost" class="card-subtitle mb-2 text-muted">
-                        Loading...
-                    </h6>
-            </div>
 
-            {% if not challenge.shared %}
-            <div id="whale-panel-stopped" class="card" style="width: 100%; display: none;">
-                <div class="card-body">
-                    <h5 class="card-title">Instance Info</h5>
-                    <button class="btn btn-primary card-link" style="background-color:#479abf;" id="whale-button-boot" type="button" data-test-id="cm-button-boot"
-                        onclick="CTFd._internal.challenge.boot()">Launch the challenge</button>
-                </div>
-            </div>
-            {% endif %}
-            <div id="whale-panel-started" type="hidden" class="card" style="width: 100%;display: none;">
-                <div class="card-body">
-                    <h5 class="card-title">Instance Info</h5>
-                    <h6 id="cm-panel-until" class="card-subtitle mb-2 text-muted">
-                        Remaining Time: <span id="whale-challenge-count-down" data-test-id="cm-challenge-count-down"></span>
-                    </h6>
-                    <p id="whale-challenge-user-access" class="card-text"></p>
-                    {% if not challenge.shared %}
-                    {% if challenge.timeout %}
-                    <button type="button" class="btn btn-success card-link" style="background-color:#ebb850; border-color:#000000" id="whale-button-renew" data-test-id="cm-button-renew"
-                            onclick="CTFd._internal.challenge.renew()">
-                        Renew
-                    </button>
-                    {% endif %}
+<div class="row text-center pb-3">
+    <div id="whale-panel" style="width: 100%;">
+        
+        <style>
+            .whale-card {
+                width: 100%; 
+                background-color: #1e1e1e; 
+                border: 1px solid #333; 
+                color: #ffffff; 
+                border-radius: 12px; 
+                overflow: hidden;
+                box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+            }
+            .lab-row { 
+                display: flex; 
+                align-items: flex-start; 
+                margin-bottom: 14px; /* Slightly more room for bigger text */
+                font-size: 15px;     /* Increased from 13px */
+            }
+            .lab-label { 
+                width: 120px;        /* Increased slightly for bigger font */
+                color: #888; 
+                font-weight: 500; 
+                text-align: left;
+                flex-shrink: 0;
+                padding-top: 3px;
+            }
+            .lab-value { 
+                flex: 1; 
+                font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; 
+                text-align: left; 
+                word-break: break-all;
+                overflow-wrap: break-word;
+                white-space: normal;
+                color: #efefef;
+            }
+            .lab-code { 
+                background: #222; 
+                padding: 4px 10px;   /* Slightly fatter box for bigger text */
+                border-radius: 4px; 
+                border: 1px solid #444; 
+                color: #ddd; 
+                display: inline-block; 
+                font-size: 14px;     /* Ensure code font is readable */
+            }
+            .btn-lab { 
+                border: none; 
+                border-radius: 6px; 
+                font-weight: 700; 
+                transition: transform 0.1s, opacity 0.2s; 
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+            .btn-lab:hover { 
+                opacity: 0.9; 
+                transform: translateY(-1px); 
+            }
+            .btn-lab:active { transform: translateY(0); }
+            
+            #whale-challenge-count-down {
+                color: #fff; 
+                font-weight: 600; 
+                font-family: monospace;
+            }
+        </style>
+
+        <div id="cm-panel-loading" class="whale-card p-4">
+            <h5 class="card-title mb-0">Instance Info</h5>
+            <h6 id="cm-panel-mana-cost" class="card-subtitle mt-2" style="color: #888;">
+                <i class="fas fa-circle-notch fa-spin mr-1"></i> Loading...
+            </h6>
+        </div>
+
+        {% if not challenge.shared %}
+        <div id="whale-panel-stopped" class="whale-card p-4" style="display: none;">
+            <h5 class="card-title mb-3">Instance Info</h5>
+            <button class="btn btn-primary btn-lab px-5 py-2 mx-auto" style="background-color:#479abf;" id="whale-button-boot" type="button" 
+                    data-test-id="cm-button-boot" onclick="CTFd._internal.challenge.boot()">
+                Launch Challenge
+            </button>
+        </div>
+
+        <div id="whale-panel-starting" class="whale-card p-4" style="display: none;">
+            <h5 class="card-title mb-2">Instance Info</h5>
+            <h6 id="cm-starting-msg" style="color: #ebb850;">
+                <i class="fas fa-spinner fa-spin mr-1"></i> Provisioning Environment...
+            </h6>
+            <p class="small mt-2 mb-0" style="color: #666;">This may take a few minutes. Please do not refresh.</p>
+        </div>
+        {% endif %}
+
+        <div id="whale-panel-started" class="whale-card" style="display: none;">
+            <div class="card-body pt-4 pb-5">
+                <h4 class="card-title mb-1" style="font-weight: 700; letter-spacing: -0.5px;">Instance Info</h4>
+                
+                <h6 id="cm-panel-until" class="mb-4" style="color: #888; font-size: 0.85rem; display: none;">
+                    Remaining Time: <span id="whale-challenge-count-down"></span>
+                </h6>
+
+                <div style="max-width: 520px; margin: 0 auto;">
                     
-                    <button type="button" class="btn btn-success card-link" style="background-color:#479abf; border-color:#000000" id="whale-button-restart" data-test-id="cm-button-restart"
-                            onclick="CTFd._internal.challenge.restart()"> 
-                        Restart
-                    </button>
+                    <div style="text-align: left; margin-bottom: 15px;">
+                        <span style="color: #aaa; font-size: 12px; text-transform: uppercase; font-weight: 700; letter-spacing: 1px; display: block; margin-bottom: 6px;">Category</span>
+                        <div style="font-size: 16px; line-height: 1.4; color: #fff; word-wrap: break-word; overflow-wrap: break-word;">
+                            [Microsoft] Defender: Man-in-the-Middle, Detection via Known-Patterns and Behavioral Analysis
+                        </div>
+                    </div>
 
-                    <button type="button" class="btn btn-danger card-link" style="background-color:#b43c2c; border-color:#000000" id="whale-button-destroy" data-test-id="cm-button-destroy"
-                            onclick="CTFd._internal.challenge.destroy()">
-                        Destroy
-                    </button>  
-                    {% endif %}                  
+                    <div id="cm-connection-details" class="mb-4" style="display: none;">
+                        <div style="border: 1px solid #333; border-radius: 8px; padding: 20px; background-color: #161616;">
+                            
+                            <div class="d-flex align-items-center mb-3 pb-2" style="border-bottom: 1px solid #2a2a2a;">
+                                <i class="fas fa-cloud text-primary mr-2" style="font-size: 1rem;"></i> 
+                                <span style="font-weight: 700; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; color: #aaa;">
+                                    Azure Environment
+                                </span>
+                            </div>
 
+                            <div class="lab-row">
+                                <div class="lab-label">Portal:</div>
+                                <div class="lab-value">
+                                    <a id="cm-azure-link" href="#" target="_blank" style="color: #4da3ff; text-decoration: none;"></a>
+                                </div>
+                            </div>
+
+                            <div class="lab-row">
+                                <div class="lab-label">Res. Group:</div>
+                                <div class="lab-value">
+                                    <span id="cm-rg-name" class="lab-code"></span>
+                                </div>
+                            </div>
+
+                            <div class="lab-row">
+                                <div class="lab-label">Workspace:</div>
+                                <div class="lab-value">
+                                    <span id="cm-workspace-name" class="lab-code"></span>
+                                </div>
+                            </div>
+
+                            <div class="lab-row" style="margin-bottom: 0;">
+                                <div class="lab-label">Username:</div>
+                                <div class="lab-value">
+                                    <span id="cm-user-name" class="lab-code"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div> <div class="d-flex justify-content-center mt-2" style="gap: 15px;">
+                    {% if not challenge.shared %}
+                        {% if challenge.timeout %}
+                        <button type="button" class="btn btn-sm px-4 py-2 btn-lab" 
+                                style="background-color:#ebb850; color: #000;" 
+                                id="whale-button-renew" data-test-id="cm-button-renew" 
+                                onclick="CTFd._internal.challenge.renew()">
+                            <i class="fas fa-clock"></i> Renew
+                        </button>
+                        {% endif %}
+                        
+                        <button type="button" class="btn btn-sm px-4 py-2 btn-lab" 
+                                style="background-color:#479abf; color: #fff;" 
+                                id="whale-button-restart" data-test-id="cm-button-restart" 
+                                onclick="CTFd._internal.challenge.restart()"> 
+                            <i class="fas fa-redo"></i> Restart
+                        </button>
+
+                        <button type="button" class="btn btn-sm px-4 py-2 btn-lab" 
+                                style="background-color:#b43c2c; color: #fff;" 
+                                id="whale-button-destroy" data-test-id="cm-button-destroy" 
+                                onclick="CTFd._internal.challenge.destroy()">
+                            <i class="fas fa-trash"></i> Destroy
+                        </button> 
+                    {% endif %}
                 </div>
             </div>
         </div>
-        
     </div>
+</div>
 
-    <code><span id="whale-challenge-lan-domain" data-test-id="cm-connectionInfo-id"></span></code>&nbsp;
-
-    
 {% endblock %}
-
