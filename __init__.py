@@ -9,9 +9,9 @@ import requests
 from flask import Blueprint, redirect, render_template, request, url_for
 
 from CTFd.plugins import (
+    register_admin_plugin_menu_bar,
     register_plugin_assets_directory,
     register_plugin_script,
-    register_user_page_menu_bar,
 )
 from CTFd.plugins.challenges import CHALLENGE_CLASSES
 from CTFd.plugins.migrations import upgrade
@@ -85,12 +85,11 @@ def load(app):  # pylint: disable=too-many-statements
     def admin_settings():  # pylint: disable=unused-variable
         logger.debug("Accessing admin settings page.")
 
+        api_url = get_config("chall-manager:chall-manager_api_url")
+
         try:
             logger.debug("getting connection status with chall-manager")
-            health_url = (
-                f'{get_config("chall-manager:chall-manager_api_url")}/healthcheck'
-            )
-            requests.get(health_url, timeout=5).raise_for_status()
+            requests.get(f"{api_url}/healthcheck", timeout=5).raise_for_status()
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.warning("cannot communicate with CM provided got %s", e)
             cm_api_reachable = False
@@ -98,8 +97,18 @@ def load(app):  # pylint: disable=too-many-statements
             logger.info("communication with CM configured successfully")
             cm_api_reachable = True
 
+        tofu_version = {"data": "unavailable"}
+        try:
+            resp = requests.get(f"{api_url}/version", timeout=5)
+            resp.raise_for_status()
+            tofu_version = resp.json()
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            logger.warning("cannot retrieve tofu version from CM: %s", e)
+
         return render_template(
-            "chall_manager_config.html", cm_api_reachable=cm_api_reachable
+            "chall_manager_config.html",
+            cm_api_reachable=cm_api_reachable,
+            tofu_version=tofu_version,
         )
 
     # Route to monitor & manage running instances
@@ -206,7 +215,7 @@ def load(app):  # pylint: disable=too-many-statements
 
     # Route to monitor & manage running instances
     @page_blueprint.route("/instances")
-    @authed_only
+    @admins_only
     def instances():  # pylint: disable=unused-variable
         mana_total = int(get_config("chall-manager:chall-manager_mana_total"))
         mana_enabled = mana_total > 0
@@ -303,6 +312,6 @@ def load(app):  # pylint: disable=too-many-statements
         != "true"
     )
     if instances_panel_enabled:
-        register_user_page_menu_bar(
+        register_admin_plugin_menu_bar(
             "Instances", "/plugins/ctfd-chall-manager/instances"
         )
