@@ -51,7 +51,7 @@ def create_instance(
             message="an exception occurred while communicating with CM"
         ) from e
 
-    if r.status_code != 200:
+    if r.status_code not in (200, 202):
         error_data = r.json()
         message = error_data.get("message", "Unknown error")
         logger.error("chall-manager returned an error: %s", message)
@@ -59,7 +59,8 @@ def create_instance(
 
     result = r.json()
     instance_data = result.get("data", result)
-    
+
+    # Never cache a deploying instance — the frontend must poll for fresh state
     if not instance_data.get("locked"):
         cache.set(cache_key, instance_data, timeout=60)
         logger.debug("cached instance data")
